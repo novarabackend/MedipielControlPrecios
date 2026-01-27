@@ -1,0 +1,37 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Visual Studio
+.vs/
+.vscode/
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+*.log
+
+## Test results
+TestResults/
+
+## NuGet
+*.nupkg
+packages/
+.nuget/
+
+## Publish
+publish/
+
+## Local env
+appsettings.Development.json
+appsettings.Local.json
+
