@@ -11,7 +11,7 @@
 > Postgres va **fuera** de contenedores (servidor on‑prem existente) o como servicio aparte si lo prefieren.
 
 ## Base de datos
-- PostgreSQL.
+- SQL Server.
 - Conexión desde backend vía `appsettings.json`.
 
 ## Scheduler (simple)
@@ -35,10 +35,10 @@
 ## Puertos sugeridos
 - Frontend: 8080 (Nginx)
 - Backend: 5000 (Kestrel)
-- Postgres: 5432
+- SQL Server: 1433
 
 ## Pendientes por confirmar
-- ¿Postgres en servidor dedicado o container separado?
+- ¿SQL Server en servidor dedicado o container separado?
 - Sistema operativo del host on‑prem.
 - Ruta de logs y política de retención.
 - Hora exacta de corrida diaria.
