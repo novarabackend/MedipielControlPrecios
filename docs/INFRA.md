@@ -7,11 +7,16 @@
 ## Contenedores
 - **frontend**: Angular build servido por Nginx.
 - **backend**: .NET 8 (modular monolith) con API + jobs.
+- **db**: SQL Server en contenedor.
 
-> Postgres va **fuera** de contenedores (servidor on‑prem existente) o como servicio aparte si lo prefieren.
+Todos levantan con un unico `docker compose`.
+
+Archivos:
+- `docker-compose.yml`
+- `.env` (usar `.env.example` como base)
 
 ## Base de datos
-- SQL Server.
+- SQL Server (contenedor).
 - Conexión desde backend vía `appsettings.json`.
 
 ## Scheduler (simple)
