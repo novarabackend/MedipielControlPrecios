@@ -6,5 +6,5 @@ COPY . .
 RUN npm run build -- --configuration production
 
 FROM nginx:1.25-alpine
-COPY --from=build /app/dist/coreui-free-angular-admin-template/ /usr/share/nginx/html
+COPY --from=build /app/dist/fuse/ /usr/share/nginx/html
 EXPOSE 80

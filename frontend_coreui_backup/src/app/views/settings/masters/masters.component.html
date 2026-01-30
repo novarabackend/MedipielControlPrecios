@@ -1,0 +1,174 @@
+<c-row class="mb-4">
+  <c-col xs="12">
+    <c-card>
+      <c-card-header>
+        <strong>Maestros de configuracion</strong>
+      </c-card-header>
+      <c-card-body>
+        <div class="masters-status">
+          @if (loading()) {
+            <span class="text-body-secondary">Cargando maestros...</span>
+          }
+          @if (hasError()) {
+            <span class="text-danger">{{ error() }}</span>
+          }
+        </div>
+      </c-card-body>
+    </c-card>
+  </c-col>
+</c-row>
+
+<c-row>
+  <c-col md="4" xs="12">
+    <c-card class="mb-4">
+      <c-card-header>
+        <div class="master-header">
+          <strong>Marcas</strong>
+          <span class="badge text-bg-light">{{ brands().length }}</span>
+        </div>
+      </c-card-header>
+      <c-card-body>
+        <form cForm [formGroup]="brandForm" (ngSubmit)="createBrand()">
+          <label class="form-label" for="brandName">Nombre de marca</label>
+          <div cInputGroup class="mb-2">
+            <span cInputGroupText>+</span>
+            <input cFormControl id="brandName" formControlName="name" placeholder="Ej: ISDIN" type="text" />
+            <button cButton color="primary" type="submit">Agregar</button>
+          </div>
+          @if (brandForm.get('name')?.touched && brandForm.get('name')?.invalid) {
+            <div class="text-danger small">El nombre de la marca es obligatorio.</div>
+          }
+        </form>
+
+        <div class="master-list">
+          @if (brands().length === 0) {
+            <div class="master-empty">No hay marcas registradas.</div>
+          }
+          @for (item of brands(); track item.id) {
+            <div class="master-item">
+              @if (editing()?.type === 'brand' && editing()?.id === item.id) {
+                <form cForm class="master-edit" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+                  <input cFormControl formControlName="name" placeholder="Nombre" type="text" />
+                  <div class="master-actions">
+                    <button cButton color="success" size="sm" type="submit">Guardar</button>
+                    <button cButton color="light" size="sm" type="button" (click)="cancelEdit()">Cancelar</button>
+                  </div>
+                </form>
+              } @else {
+                <div class="master-row">
+                  <div class="master-name">{{ item.name }}</div>
+                  <div class="master-actions">
+                    <button cButton color="light" size="sm" type="button" (click)="startEdit('brand', item)">Editar</button>
+                    <button cButton color="danger" variant="outline" size="sm" type="button" (click)="deleteBrand(item)">Eliminar</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </c-card-body>
+    </c-card>
+  </c-col>
+
+  <c-col md="4" xs="12">
+    <c-card class="mb-4">
+      <c-card-header>
+        <div class="master-header">
+          <strong>Proveedores</strong>
+          <span class="badge text-bg-light">{{ suppliers().length }}</span>
+        </div>
+      </c-card-header>
+      <c-card-body>
+        <form cForm [formGroup]="supplierForm" (ngSubmit)="createSupplier()">
+          <label class="form-label" for="supplierName">Nombre del proveedor</label>
+          <div cInputGroup class="mb-2">
+            <span cInputGroupText>+</span>
+            <input cFormControl id="supplierName" formControlName="name" placeholder="Ej: Genfar" type="text" />
+            <button cButton color="primary" type="submit">Agregar</button>
+          </div>
+          @if (supplierForm.get('name')?.touched && supplierForm.get('name')?.invalid) {
+            <div class="text-danger small">El nombre del proveedor es obligatorio.</div>
+          }
+        </form>
+
+        <div class="master-list">
+          @if (suppliers().length === 0) {
+            <div class="master-empty">No hay proveedores registrados.</div>
+          }
+          @for (item of suppliers(); track item.id) {
+            <div class="master-item">
+              @if (editing()?.type === 'supplier' && editing()?.id === item.id) {
+                <form cForm class="master-edit" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+                  <input cFormControl formControlName="name" placeholder="Nombre" type="text" />
+                  <div class="master-actions">
+                    <button cButton color="success" size="sm" type="submit">Guardar</button>
+                    <button cButton color="light" size="sm" type="button" (click)="cancelEdit()">Cancelar</button>
+                  </div>
+                </form>
+              } @else {
+                <div class="master-row">
+                  <div class="master-name">{{ item.name }}</div>
+                  <div class="master-actions">
+                    <button cButton color="light" size="sm" type="button" (click)="startEdit('supplier', item)">Editar</button>
+                    <button cButton color="danger" variant="outline" size="sm" type="button" (click)="deleteSupplier(item)">Eliminar</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </c-card-body>
+    </c-card>
+  </c-col>
+
+  <c-col md="4" xs="12">
+    <c-card class="mb-4">
+      <c-card-header>
+        <div class="master-header">
+          <strong>Categorias</strong>
+          <span class="badge text-bg-light">{{ categories().length }}</span>
+        </div>
+      </c-card-header>
+      <c-card-body>
+        <form cForm [formGroup]="categoryForm" (ngSubmit)="createCategory()">
+          <label class="form-label" for="categoryName">Nombre de la categoria</label>
+          <div cInputGroup class="mb-2">
+            <span cInputGroupText>+</span>
+            <input cFormControl id="categoryName" formControlName="name" placeholder="Ej: Dermocosmetica" type="text" />
+            <button cButton color="primary" type="submit">Agregar</button>
+          </div>
+          @if (categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid) {
+            <div class="text-danger small">El nombre de la categoria es obligatorio.</div>
+          }
+        </form>
+
+        <div class="master-list">
+          @if (categories().length === 0) {
+            <div class="master-empty">No hay categorias registradas.</div>
+          }
+          @for (item of categories(); track item.id) {
+            <div class="master-item">
+              @if (editing()?.type === 'category' && editing()?.id === item.id) {
+                <form cForm class="master-edit" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+                  <input cFormControl formControlName="name" placeholder="Nombre" type="text" />
+                  <div class="master-actions">
+                    <button cButton color="success" size="sm" type="submit">Guardar</button>
+                    <button cButton color="light" size="sm" type="button" (click)="cancelEdit()">Cancelar</button>
+                  </div>
+                </form>
+              } @else {
+                <div class="master-row">
+                  <div class="master-name">{{ item.name }}</div>
+                  <div class="master-actions">
+                    <button cButton color="light" size="sm" type="button" (click)="startEdit('category', item)">Editar</button>
+                    <button cButton color="danger" variant="outline" size="sm" type="button" (click)="deleteCategory(item)">Eliminar</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </c-card-body>
+    </c-card>
+  </c-col>
+</c-row>

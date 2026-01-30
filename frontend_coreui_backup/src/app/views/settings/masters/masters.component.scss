@@ -1,0 +1,55 @@
+.masters-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 1.5rem;
+}
+
+.master-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.master-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.master-item {
+  border: 1px solid var(--cui-border-color, #dee2e6);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--cui-body-bg, #fff);
+}
+
+.master-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.master-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.master-name {
+  font-weight: 600;
+}
+
+.master-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.master-empty {
+  color: var(--cui-secondary-color, #6c757d);
+  font-size: 0.875rem;
+}

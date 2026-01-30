@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<ProductLine> Lines => Set<ProductLine>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Competitor> Competitors => Set<Competitor>();
     public DbSet<CompetitorProduct> CompetitorProducts => Set<CompetitorProduct>();
@@ -21,8 +22,14 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Brand>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<Brand>()
+            .HasOne(x => x.Supplier)
+            .WithMany()
+            .HasForeignKey(x => x.SupplierId)
+            .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<Supplier>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<Category>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<ProductLine>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<Competitor>().HasIndex(x => x.Name).IsUnique();
 
         modelBuilder.Entity<Product>().HasIndex(x => x.Sku).IsUnique();

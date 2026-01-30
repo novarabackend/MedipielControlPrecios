@@ -1,0 +1,112 @@
+<div class="page-header">
+  <div>
+    <h3 class="mb-1">Marcas</h3>
+    <div class="text-body-secondary small">Gestiona el maestro de marcas.</div>
+  </div>
+  <div class="page-status">
+    @if (loading()) {
+      <span class="text-body-secondary">Cargando...</span>
+    }
+    @if (hasError()) {
+      <span class="text-danger">{{ error() }}</span>
+    }
+  </div>
+</div>
+
+<c-row>
+  <c-col xs="12">
+    <c-card class="mb-4">
+      <c-card-header>
+        <div class="section-header">
+          <strong>Listado</strong>
+          <span class="badge text-bg-light">{{ items().length }}</span>
+        </div>
+      </c-card-header>
+      <c-card-body>
+        @if (items().length === 0) {
+          <div class="empty">No hay marcas registradas.</div>
+        } @else {
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.id) {
+                <tr>
+                  <td>
+                    @if (editing()?.id === item.id) {
+                      <div class="edit-field" [formGroup]="editForm">
+                        <input cFormControl class="form-control" formControlName="name" />
+                      </div>
+                    } @else {
+                      {{ item.name }}
+                    }
+                  </td>
+                  <td class="text-end">
+                    @if (editing()?.id === item.id) {
+                      <button cButton color="success" size="sm" type="button" (click)="saveEdit()">Guardar</button>
+                      <button cButton color="light" size="sm" type="button" (click)="cancelEdit()">Cancelar</button>
+                    } @else {
+                      <button cButton color="light" size="sm" type="button" (click)="startEdit(item)">Editar</button>
+                      <button cButton color="danger" variant="outline" size="sm" type="button" (click)="remove(item)">Eliminar</button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </c-card-body>
+    </c-card>
+  </c-col>
+
+  <c-col xs="12">
+    <c-card class="mb-4">
+      <c-card-header>
+        <strong>Agregar marca</strong>
+      </c-card-header>
+      <c-card-body>
+        <form cForm [formGroup]="createForm" (ngSubmit)="create()">
+          <label class="form-label" for="brandName">Nombre</label>
+          <div cInputGroup class="mb-2">
+            <span cInputGroupText>+</span>
+            <input cFormControl id="brandName" formControlName="name" placeholder="Ej: ISDIN" type="text" />
+            <button cButton color="primary" type="submit">Guardar</button>
+          </div>
+          @if (createForm.get('name')?.touched && createForm.get('name')?.invalid) {
+            <div class="text-danger small">El nombre es obligatorio.</div>
+          }
+        </form>
+      </c-card-body>
+    </c-card>
+
+    <c-card>
+      <c-card-header>
+        <strong>Carga masiva</strong>
+      </c-card-header>
+      <c-card-body>
+        <p class="text-body-secondary small mb-3">
+          Formato: primera columna con el nombre. Puede incluir encabezado "Nombre".
+        </p>
+        <div class="mb-3">
+          <input cFormControl type="file" accept=".xlsx,.xls" (change)="onFileChange($event)" />
+        </div>
+        <button cButton color="primary" type="button" [disabled]="importing()" (click)="importExcel()">
+          @if (importing()) { Cargando... } @else { Importar Excel }
+        </button>
+
+        @if (importSummary()) {
+          <div class="import-summary">
+            <div>Total: {{ importSummary()?.total }}</div>
+            <div>Exitosos: {{ importSummary()?.success }}</div>
+            <div>Omitidos: {{ importSummary()?.skipped }}</div>
+            <div>Fallidos: {{ importSummary()?.failed }}</div>
+          </div>
+        }
+      </c-card-body>
+    </c-card>
+  </c-col>
+</c-row>

@@ -1,0 +1,198 @@
+<div class="flex min-w-0 flex-auto flex-col">
+    <div class="border-b bg-card px-6 py-5 sm:px-10">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <div class="text-2xl font-semibold">Categorias</div>
+                <div class="text-sm text-secondary">
+                    Define las categorias para clasificar el catalogo.
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button mat-flat-button color="primary" type="button" (click)="toggleCreatePanel()">
+                    <mat-icon class="mr-2" svgIcon="heroicons_outline:plus"></mat-icon>
+                    Crear categoria
+                </button>
+                <button mat-stroked-button type="button" (click)="toggleImportPanel()">
+                    Carga masiva
+                </button>
+                <button mat-stroked-button type="button" (click)="load()">
+                    Actualizar
+                </button>
+            </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
+            @if (loading()) {
+                <span class="text-secondary">Cargando...</span>
+            }
+            @if (hasError()) {
+                <span class="text-warn">{{ error() }}</span>
+            }
+        </div>
+    </div>
+
+    <div class="flex-auto space-y-6 p-6 sm:p-10">
+        <section class="rounded-2xl border bg-card shadow-sm">
+            @if (showCreatePanel()) {
+                <div class="border-b px-6 py-5">
+                    <div class="text-lg font-semibold">Nueva categoria</div>
+                    <form
+                        class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]"
+                        [formGroup]="createForm"
+                        (ngSubmit)="create()"
+                    >
+                        <div>
+                            <label class="text-sm font-medium" for="categoryName">Nombre</label>
+                            <input
+                                id="categoryName"
+                                class="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                                formControlName="name"
+                                placeholder="Ej: Dermocosmetica"
+                                type="text"
+                            />
+                            @if (createForm.get('name')?.touched && createForm.get('name')?.invalid) {
+                                <div class="mt-1 text-xs text-warn">El nombre es obligatorio.</div>
+                            }
+                        </div>
+                        <div class="flex items-end gap-2">
+                            <button mat-flat-button color="primary" type="submit">Guardar</button>
+                            <button mat-stroked-button type="button" (click)="toggleCreatePanel()">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            }
+
+            @if (showImportPanel()) {
+                <div class="border-b px-6 py-5">
+                    <div class="text-lg font-semibold">Carga masiva</div>
+                    <div class="mt-1 text-sm text-secondary">
+                        Formato: primera columna con el nombre. Puede incluir encabezado "Nombre".
+                    </div>
+                    <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <label class="flex w-full cursor-pointer flex-col rounded-xl border border-dashed px-4 py-3 text-sm text-secondary sm:w-auto">
+                            <span class="font-medium text-primary">Seleccionar archivo</span>
+                            <input
+                                class="hidden"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                (change)="onFileChange($event)"
+                            />
+                            <span class="mt-1 text-xs">{{ fileName() }}</span>
+                        </label>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button mat-stroked-button type="button" (click)="downloadTemplate()">
+                                Descargar plantilla
+                            </button>
+                            <button
+                                mat-flat-button
+                                color="primary"
+                                type="button"
+                                [disabled]="importing()"
+                                (click)="importExcel()"
+                            >
+                                @if (importing()) {
+                                    Importando...
+                                } @else {
+                                    Importar Excel
+                                }
+                            </button>
+                            <button mat-stroked-button type="button" (click)="toggleImportPanel()">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                    @if (importSummary()) {
+                        <div class="mt-4 grid gap-2 text-sm text-secondary sm:grid-cols-4">
+                            <div>Total: {{ importSummary()?.total }}</div>
+                            <div>Exitosos: {{ importSummary()?.success }}</div>
+                            <div>Omitidos: {{ importSummary()?.skipped }}</div>
+                            <div>Fallidos: {{ importSummary()?.failed }}</div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="px-6 py-5">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-lg font-semibold">Listado</div>
+                    <div class="text-sm text-secondary">Total: {{ items().length }}</div>
+                </div>
+
+                @if (items().length === 0) {
+                    <div class="rounded-xl border border-dashed p-6 text-sm text-secondary">
+                        No hay categorias registradas.
+                    </div>
+                } @else {
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="text-secondary">
+                                <tr class="border-b">
+                                    <th class="py-3 pr-4">Nombre</th>
+                                    <th class="py-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (item of items(); track item.id) {
+                                    <tr class="border-b">
+                                        <td class="py-3 pr-4">
+                                            @if (editing()?.id === item.id) {
+                                                <div [formGroup]="editForm">
+                                                    <input
+                                                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                                                        formControlName="name"
+                                                        placeholder="Nombre"
+                                                        type="text"
+                                                    />
+                                                </div>
+                                            } @else {
+                                                {{ item.name }}
+                                            }
+                                        </td>
+                                        <td class="py-3 text-right">
+                                            <div class="inline-flex items-center gap-2">
+                                                @if (editing()?.id === item.id) {
+                                                    <button
+                                                        mat-flat-button
+                                                        color="primary"
+                                                        type="button"
+                                                        (click)="saveEdit()"
+                                                    >
+                                                        Guardar
+                                                    </button>
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        (click)="cancelEdit()"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                } @else {
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        (click)="startEdit(item)"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        mat-flat-button
+                                                        color="warn"
+                                                        type="button"
+                                                        (click)="remove(item)"
+                                                    >
+                                                        Eliminar
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</div>

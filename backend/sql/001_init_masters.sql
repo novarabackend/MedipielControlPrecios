@@ -9,17 +9,6 @@ GO
 USE MedipielControlPrecios;
 GO
 
-IF OBJECT_ID('dbo.Brands', 'U') IS NULL
-BEGIN
-  CREATE TABLE dbo.Brands (
-    Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    Name NVARCHAR(200) NOT NULL,
-    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-  );
-  CREATE UNIQUE INDEX UX_Brands_Name ON dbo.Brands(Name);
-END
-GO
-
 IF OBJECT_ID('dbo.Suppliers', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Suppliers (
@@ -31,6 +20,19 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID('dbo.Brands', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.Brands (
+    Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    Name NVARCHAR(200) NOT NULL,
+    SupplierId INT NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_Brands_Suppliers FOREIGN KEY (SupplierId) REFERENCES dbo.Suppliers(Id) ON DELETE SET NULL
+  );
+  CREATE UNIQUE INDEX UX_Brands_Name ON dbo.Brands(Name);
+END
+GO
+
 IF OBJECT_ID('dbo.Categories', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Categories (
@@ -39,5 +41,16 @@ BEGIN
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
   );
   CREATE UNIQUE INDEX UX_Categories_Name ON dbo.Categories(Name);
+END
+GO
+
+IF OBJECT_ID('dbo.Lines', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.Lines (
+    Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    Name NVARCHAR(200) NOT NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+  );
+  CREATE UNIQUE INDEX UX_Lines_Name ON dbo.Lines(Name);
 END
 GO

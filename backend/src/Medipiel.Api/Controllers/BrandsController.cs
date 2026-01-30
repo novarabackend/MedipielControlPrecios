@@ -38,7 +38,16 @@ public class BrandsController : ControllerBase
             return BadRequest("Name is required.");
         }
 
-        var entity = new Brand { Name = input.Name.Trim() };
+        if (input.SupplierId.HasValue)
+        {
+            var supplierExists = await _db.Suppliers.AnyAsync(x => x.Id == input.SupplierId.Value);
+            if (!supplierExists)
+            {
+                return BadRequest("Supplier not found.");
+            }
+        }
+
+        var entity = new Brand { Name = input.Name.Trim(), SupplierId = input.SupplierId };
         _db.Brands.Add(entity);
         try
         {
@@ -65,7 +74,17 @@ public class BrandsController : ControllerBase
             return NotFound();
         }
 
+        if (input.SupplierId.HasValue)
+        {
+            var supplierExists = await _db.Suppliers.AnyAsync(x => x.Id == input.SupplierId.Value);
+            if (!supplierExists)
+            {
+                return BadRequest("Supplier not found.");
+            }
+        }
+
         entity.Name = input.Name.Trim();
+        entity.SupplierId = input.SupplierId;
         try
         {
             await _db.SaveChangesAsync();
