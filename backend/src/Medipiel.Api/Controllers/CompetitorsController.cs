@@ -24,16 +24,46 @@ public class CompetitorsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Competitor input)
+    public async Task<IActionResult> Create([FromBody] CompetitorRequest input)
     {
         if (string.IsNullOrWhiteSpace(input.Name))
         {
             return BadRequest("Name is required.");
         }
 
-        var entity = new Competitor { Name = input.Name.Trim(), BaseUrl = input.BaseUrl };
+        var entity = new Competitor
+        {
+            Name = input.Name.Trim(),
+            BaseUrl = input.BaseUrl,
+            AdapterId = input.AdapterId,
+            IsActive = input.IsActive ?? true,
+        };
         _db.Competitors.Add(entity);
         await _db.SaveChangesAsync();
         return Created($"api/competitors/{entity.Id}", entity);
     }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CompetitorRequest input)
+    {
+        var entity = await _db.Competitors.FirstOrDefaultAsync(x => x.Id == id);
+        if (entity is null)
+        {
+            return NotFound();
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Name))
+        {
+            entity.Name = input.Name.Trim();
+        }
+
+        entity.BaseUrl = input.BaseUrl;
+        entity.AdapterId = input.AdapterId;
+        entity.IsActive = input.IsActive ?? entity.IsActive;
+
+        await _db.SaveChangesAsync();
+        return Ok(entity);
+    }
 }
+
+public sealed record CompetitorRequest(string Name, string? BaseUrl, string? AdapterId, bool? IsActive);

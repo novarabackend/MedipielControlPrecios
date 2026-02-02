@@ -2,9 +2,11 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 COPY src/Medipiel.Api/Medipiel.Api.csproj ./Medipiel.Api/
+COPY src/Medipiel.Competitors.Abstractions/Medipiel.Competitors.Abstractions.csproj ./Medipiel.Competitors.Abstractions/
 RUN dotnet restore ./Medipiel.Api/Medipiel.Api.csproj
 
 COPY src/Medipiel.Api/ ./Medipiel.Api/
+COPY src/Medipiel.Competitors.Abstractions/ ./Medipiel.Competitors.Abstractions/
 WORKDIR /src/Medipiel.Api
 RUN dotnet publish -c Release -o /app/publish
 

@@ -1,0 +1,167 @@
+<div class="flex min-w-0 flex-auto flex-col p-6 sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <div class="text-2xl font-semibold tracking-tight">Productos</div>
+            <div class="text-secondary">
+                Carga el catalogo base desde Excel.
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button mat-stroked-button (click)="downloadTemplate()">
+                Descargar plantilla
+            </button>
+            <button mat-stroked-button (click)="toggleImportPanel()">
+                Carga masiva
+            </button>
+            <button mat-stroked-button (click)="load()">
+                Actualizar
+            </button>
+        </div>
+    </div>
+
+    @if (hasError()) {
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ error() }}
+        </div>
+    }
+
+    @if (showImportPanel()) {
+        <div class="bg-card mt-6 rounded-2xl p-6 shadow">
+            <div class="text-lg font-medium">Carga masiva</div>
+            <div class="text-secondary text-sm">
+                Usa la plantilla para cargar SKU, EAN, descripcion, marca, proveedor,
+                categoria y linea.
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-4">
+                <input type="file" (change)="onFileChange($event)" accept=".xlsx,.xls" />
+                <span class="text-sm text-secondary">{{ fileName() }}</span>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="importExcel()"
+                    [disabled]="importing()"
+                >
+                    Importar Excel
+                </button>
+            </div>
+
+            @if (importSummary()) {
+                <div class="mt-4 text-sm text-secondary">
+                    Total: {{ importSummary()?.total }} ·
+                    Creados: {{ importSummary()?.created }} ·
+                    Actualizados: {{ importSummary()?.updated }} ·
+                    Fallidos: {{ importSummary()?.failed }}
+                </div>
+            }
+
+            @if (skippedEmptyRows() > 0) {
+                <div class="mt-2 text-sm text-secondary">
+                    Filas vacias ignoradas: {{ skippedEmptyRows() }}
+                </div>
+            }
+
+            @if (importSummary()?.errors?.length) {
+                <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <div class="font-medium">Errores encontrados</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">
+                        @for (errorItem of importSummary()?.errors ?? []; track errorItem.rowNumber) {
+                            <li>
+                                Fila {{ errorItem.rowNumber }}:
+                                {{ errorItem.message }}
+                                @if (errorItem.sku) {
+                                    (SKU: {{ errorItem.sku }})
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            @if (hasImportErrors()) {
+                <div class="mt-4">
+                    <button mat-stroked-button type="button" (click)="downloadErrors()">
+                        Descargar Excel con errores
+                    </button>
+                </div>
+            }
+
+            @if (importSummary()) {
+                <div class="mt-6">
+                    <div class="text-sm font-medium">Vista previa</div>
+                    <div class="text-secondary text-xs">
+                        Filas con error resaltadas en rojo.
+                    </div>
+
+                    <div class="mt-3 overflow-auto rounded-xl border border-gray-200">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 text-xs uppercase text-gray-600">
+                                <tr>
+                                    @for (cell of headerRow(); track $index) {
+                                        <th class="px-3 py-2">{{ cell }}</th>
+                                    }
+                                    <th class="px-3 py-2">Error</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (row of previewRows(); let rowIndex = $index; track rowIndex) {
+                                    <tr
+                                        [class.bg-red-50]="(errorMap().get(rowIndex + 2) ?? '').length > 0"
+                                        [class.text-red-700]="(errorMap().get(rowIndex + 2) ?? '').length > 0"
+                                    >
+                                        @for (cell of row; track $index) {
+                                            <td class="px-3 py-2">{{ cell }}</td>
+                                        }
+                                        <td class="px-3 py-2">{{ errorMap().get(rowIndex + 2) ?? '' }}</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (hasMorePreview()) {
+                        <div class="mt-3">
+                            <button mat-stroked-button type="button" (click)="showAllRows()">
+                                Mostrar todo
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <div class="bg-card mt-6 rounded-2xl p-6 shadow">
+        <div class="flex items-center justify-between">
+            <div class="text-lg font-medium">Listado</div>
+            <div class="text-secondary text-sm">Total: {{ items().length }}</div>
+        </div>
+
+        @if (loading()) {
+            <div class="text-secondary mt-4">Cargando...</div>
+        } @else {
+            @if (items().length === 0) {
+                <div class="text-secondary mt-4">No hay productos cargados.</div>
+            } @else {
+                <table mat-table [dataSource]="items()" class="mt-4 w-full">
+                    <ng-container matColumnDef="sku">
+                        <th mat-header-cell *matHeaderCellDef>SKU</th>
+                        <td mat-cell *matCellDef="let row">{{ row.sku }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="ean">
+                        <th mat-header-cell *matHeaderCellDef>EAN</th>
+                        <td mat-cell *matCellDef="let row">{{ row.ean ?? '—' }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="description">
+                        <th mat-header-cell *matHeaderCellDef>Descripcion</th>
+                        <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                </table>
+            }
+        }
+    </div>
+</div>

@@ -18,6 +18,8 @@ services:
     container_name: medipiel_backend
     ports:
       - "5000:5000"
+    volumes:
+      - ./backend/plugins:/app/plugins
     environment:
       - ASPNETCORE_URLS=http://0.0.0.0:5000
       - ConnectionStrings__Default=Server=db;Database=MedipielControlPrecios;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True

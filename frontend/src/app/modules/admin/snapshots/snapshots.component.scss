@@ -1,0 +1,127 @@
+:host {
+    display: block;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+
+    th,
+    td {
+        padding: 12px 14px;
+        vertical-align: top;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #1f2937;
+    }
+
+    .sticky-col {
+        position: sticky;
+        left: 0;
+        background: #ffffff;
+        z-index: 2;
+        min-width: 220px;
+    }
+
+    .sticky-col + .sticky-col {
+        left: 220px;
+        min-width: 140px;
+    }
+
+    thead .sticky-col {
+        z-index: 3;
+        background: #f8fafc;
+    }
+}
+
+.competitor-group {
+    text-align: center;
+    font-weight: 700;
+    color: #1f2937;
+    border-left: 1px solid #e2e8f0;
+}
+
+.competitor-sub {
+    text-align: center;
+    font-weight: 600;
+    border-left: 1px solid #e2e8f0;
+}
+
+.competitor-cell {
+    text-align: center;
+    border-left: 1px solid #e2e8f0;
+}
+
+.delta-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.delta-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.delta-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.75;
+}
+
+.delta-indicator {
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.delta-up {
+    color: #15803d;
+}
+
+.delta-down {
+    color: #b91c1c;
+}
+
+.delta-flat {
+    color: #64748b;
+}
+
+.medipiel-group,
+.medipiel-sub,
+.medipiel-cell {
+    background: #f8fafc;
+    text-align: center;
+    border-left: 1px solid #e2e8f0;
+    font-weight: 600;
+}
+
+table tbody tr:nth-child(even) td.sticky-col {
+    background: #f9fafb;
+}
+
+table tbody tr:nth-child(even) td.competitor-cell {
+    filter: brightness(0.98);
+}
+
+table tbody tr:hover td {
+    background: #f1f5f9;
+}
+
+table tbody tr:hover td.competitor-cell {
+    filter: none;
+}
+
+table thead tr:nth-child(2) th {
+    border-top: 1px solid #e2e8f0;
+}

@@ -15,6 +15,8 @@ BEGIN
     Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     Name NVARCHAR(200) NOT NULL,
     BaseUrl NVARCHAR(500) NULL,
+    AdapterId NVARCHAR(100) NULL,
+    IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
   );
   CREATE UNIQUE INDEX UX_Competitors_Name ON dbo.Competitors(Name);
@@ -25,19 +27,24 @@ IF OBJECT_ID('dbo.Products', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Products (
     Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    Sku NVARCHAR(100) NOT NULL,
+    Sku NVARCHAR(100) NULL,
     Ean NVARCHAR(100) NULL,
     Description NVARCHAR(500) NOT NULL,
     BrandId INT NULL,
     SupplierId INT NULL,
     CategoryId INT NULL,
+    LineId INT NULL,
+    MedipielListPrice DECIMAL(18,2) NULL,
+    MedipielPromoPrice DECIMAL(18,2) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT FK_Products_Brands FOREIGN KEY (BrandId) REFERENCES dbo.Brands(Id),
     CONSTRAINT FK_Products_Suppliers FOREIGN KEY (SupplierId) REFERENCES dbo.Suppliers(Id),
-    CONSTRAINT FK_Products_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(Id)
+    CONSTRAINT FK_Products_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(Id),
+    CONSTRAINT FK_Products_Lines FOREIGN KEY (LineId) REFERENCES dbo.Lines(Id)
   );
-  CREATE UNIQUE INDEX UX_Products_Sku ON dbo.Products(Sku);
-  CREATE INDEX IX_Products_Ean ON dbo.Products(Ean);
+  CREATE UNIQUE INDEX UX_Products_Ean ON dbo.Products(Ean)
+  WHERE Ean IS NOT NULL;
+  CREATE INDEX IX_Products_LineId ON dbo.Products(LineId);
 END
 GO
 

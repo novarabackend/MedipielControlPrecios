@@ -73,7 +73,10 @@ export const appRoutes: Route[] = [
         },
         children: [
             {path: 'example', loadChildren: () => import('app/modules/admin/example/example.routes')},
+            {path: 'catalog', loadChildren: () => import('app/modules/admin/products/products.routes').then((m) => m.productsRoutes)},
             {path: 'masters', loadChildren: () => import('app/modules/admin/masters/masters.routes').then((m) => m.mastersRoutes)},
+            {path: 'settings', loadChildren: () => import('app/modules/admin/scheduler/scheduler.routes').then((m) => m.schedulerRoutes)},
+            {path: 'results', loadChildren: () => import('app/modules/admin/snapshots/snapshots.routes').then((m) => m.snapshotsRoutes)},
         ]
     }
 ];

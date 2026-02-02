@@ -1,0 +1,122 @@
+<div class="flex min-w-0 flex-auto flex-col p-6 sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <div class="text-2xl font-semibold tracking-tight">Scheduler</div>
+            <div class="text-secondary">
+                Configura la ejecucion diaria del scraping.
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button
+                mat-stroked-button
+                (click)="load()"
+                [disabled]="loading() || saving()"
+            >
+                Actualizar
+            </button>
+            <button
+                mat-flat-button
+                color="primary"
+                (click)="save()"
+                [disabled]="loading() || saving()"
+            >
+                Guardar
+            </button>
+        </div>
+    </div>
+
+    @if (hasError()) {
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ error() }}
+        </div>
+    }
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-3">
+        <div class="bg-card rounded-2xl p-6 shadow lg:col-span-2">
+            <div class="text-lg font-medium">Configuracion</div>
+            <div class="text-secondary text-sm">
+                Hora diaria, dias activos y estado general.
+            </div>
+
+            <form class="mt-6 grid gap-6 sm:grid-cols-2" [formGroup]="form">
+                <mat-form-field class="w-full">
+                    <mat-label>Hora diaria</mat-label>
+                    <input matInput type="time" formControlName="dailyTime" />
+                </mat-form-field>
+
+                <div class="flex items-center">
+                    <mat-slide-toggle formControlName="enabled">
+                        Scheduler habilitado
+                    </mat-slide-toggle>
+                </div>
+            </form>
+
+            <div class="mt-6">
+                <div class="text-sm font-medium">Dias activos</div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                    @for (day of days; track day.bit) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="toggleDay(day.bit)"
+                            [class.bg-primary-100]="isDaySelected(day.bit)"
+                            [class.border-primary-300]="isDaySelected(day.bit)"
+                            [class.text-primary-700]="isDaySelected(day.bit)"
+                            [attr.aria-pressed]="isDaySelected(day.bit)"
+                            [attr.title]="day.name"
+                        >
+                            {{ day.label }}
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-card rounded-2xl p-6 shadow">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <div class="text-lg font-medium">Estado</div>
+                    <div class="text-secondary text-sm">
+                        Ultima ejecucion y detalle.
+                    </div>
+                </div>
+                <span
+                    class="rounded-full px-3 py-1 text-xs font-semibold"
+                    [class.bg-amber-100]="isRunning()"
+                    [class.text-amber-700]="isRunning()"
+                    [class.bg-emerald-100]="!isRunning()"
+                    [class.text-emerald-700]="!isRunning()"
+                >
+                    {{ statusLabel() }}
+                </span>
+            </div>
+
+            <div class="mt-6 space-y-4 text-sm">
+                <div class="flex items-center justify-between gap-4">
+                    <span class="text-secondary">Ultima ejecucion</span>
+                    <span>{{ status()?.lastRunAt ?? '—' }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                    <span class="text-secondary">Estado final</span>
+                    <span>{{ status()?.lastStatus ?? '—' }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                    <span class="text-secondary">Mensaje</span>
+                    <span class="text-right">{{ status()?.lastMessage ?? '—' }}</span>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="runNow()"
+                    [disabled]="saving() || isRunning()"
+                >
+                    Ejecutar ahora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

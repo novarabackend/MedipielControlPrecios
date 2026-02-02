@@ -37,15 +37,109 @@ const mastersGroup: FuseNavigationItem = {
     ],
 };
 
+const schedulerGroup: FuseNavigationItem = {
+    id: 'scheduler',
+    title: 'Scheduler',
+    type: 'group',
+    children: [
+        {
+            id: 'scheduler.settings',
+            title: 'Configuracion',
+            type: 'basic',
+            icon: 'heroicons_outline:clock',
+            link: '/settings/scheduler',
+        },
+    ],
+};
+
+const resultsGroup: FuseNavigationItem = {
+    id: 'results',
+    title: 'Resultados',
+    type: 'group',
+    children: [
+        {
+            id: 'results.latest',
+            title: 'Ultimo snapshot',
+            type: 'basic',
+            icon: 'heroicons_outline:chart-bar-square',
+            link: '/results/latest',
+        },
+    ],
+};
+
 export const defaultNavigation: FuseNavigationItem[] = [
+    {
+        id: 'catalog',
+        title: 'Catalogo',
+        type: 'group',
+        children: [
+            {
+                id: 'catalog.products',
+                title: 'Productos',
+                type: 'basic',
+                icon: 'heroicons_outline:archive-box',
+                link: '/catalog/products',
+            },
+        ],
+    },
     mastersGroup,
+    schedulerGroup,
+    resultsGroup,
 ];
 export const compactNavigation: FuseNavigationItem[] = [
+    {
+        id: 'catalog',
+        title: 'Catalogo',
+        type: 'group',
+        children: [
+            {
+                id: 'catalog.products',
+                title: 'Productos',
+                type: 'basic',
+                icon: 'heroicons_outline:archive-box',
+                link: '/catalog/products',
+            },
+        ],
+    },
     mastersGroup,
+    schedulerGroup,
+    resultsGroup,
 ];
 export const futuristicNavigation: FuseNavigationItem[] = [
+    {
+        id: 'catalog',
+        title: 'Catalogo',
+        type: 'group',
+        children: [
+            {
+                id: 'catalog.products',
+                title: 'Productos',
+                type: 'basic',
+                icon: 'heroicons_outline:archive-box',
+                link: '/catalog/products',
+            },
+        ],
+    },
     mastersGroup,
+    schedulerGroup,
+    resultsGroup,
 ];
 export const horizontalNavigation: FuseNavigationItem[] = [
+    {
+        id: 'catalog',
+        title: 'Catalogo',
+        type: 'group',
+        children: [
+            {
+                id: 'catalog.products',
+                title: 'Productos',
+                type: 'basic',
+                icon: 'heroicons_outline:archive-box',
+                link: '/catalog/products',
+            },
+        ],
+    },
     mastersGroup,
+    schedulerGroup,
+    resultsGroup,
 ];

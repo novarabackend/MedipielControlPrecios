@@ -21,8 +21,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString);
 });
 
-builder.Services.Configure<ScrapeScheduleOptions>(builder.Configuration.GetSection("Scraping:Schedule"));
+builder.Services.AddScoped<SchedulerSettingsService>();
+builder.Services.AddScoped<SchedulerExecutionService>();
+builder.Services.AddScoped<CompetitorRunService>();
 builder.Services.AddHostedService<ScrapeScheduler>();
+builder.Services.AddSingleton<CompetitorAdapterRegistry>();
+builder.Services.AddHostedService<CompetitorAdapterLoader>();
 
 var app = builder.Build();
 

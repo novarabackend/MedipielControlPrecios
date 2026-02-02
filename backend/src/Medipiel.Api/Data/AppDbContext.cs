@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<AlertRule> AlertRules => Set<AlertRule>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+    public DbSet<SchedulerSettings> SchedulerSettings => Set<SchedulerSettings>();
+    public DbSet<SchedulerRun> SchedulerRuns => Set<SchedulerRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,8 +34,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ProductLine>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<Competitor>().HasIndex(x => x.Name).IsUnique();
 
-        modelBuilder.Entity<Product>().HasIndex(x => x.Sku).IsUnique();
-        modelBuilder.Entity<Product>().HasIndex(x => x.Ean);
+        modelBuilder.Entity<Product>()
+            .HasIndex(x => x.Ean)
+            .IsUnique()
+            .HasFilter("[Ean] IS NOT NULL");
+        modelBuilder.Entity<Product>()
+            .HasOne(x => x.Line)
+            .WithMany()
+            .HasForeignKey(x => x.LineId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Product>()
+            .Property(x => x.MedipielListPrice)
+            .HasPrecision(18, 2);
+        modelBuilder.Entity<Product>()
+            .Property(x => x.MedipielPromoPrice)
+            .HasPrecision(18, 2);
 
         modelBuilder.Entity<CompetitorProduct>()
             .HasIndex(x => new { x.ProductId, x.CompetitorId })
@@ -42,5 +57,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PriceSnapshot>()
             .HasIndex(x => new { x.ProductId, x.CompetitorId, x.SnapshotDate })
             .IsUnique();
+
+        modelBuilder.Entity<SchedulerSettings>().HasKey(x => x.Id);
+        modelBuilder.Entity<SchedulerRun>().HasIndex(x => x.Status);
     }
 }
