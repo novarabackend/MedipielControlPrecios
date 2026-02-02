@@ -23,6 +23,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://0.0.0.0:5000
       - ConnectionStrings__Default=Server=db;Database=MedipielControlPrecios;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - db
 
