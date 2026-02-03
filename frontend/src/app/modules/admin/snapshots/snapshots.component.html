@@ -43,7 +43,7 @@
                         @for (competitor of competitors(); let i = $index; track competitor.id) {
                             <th
                                 class="competitor-group"
-                                [attr.colspan]="4"
+                                [attr.colspan]="3"
                                 [style.backgroundColor]="getCompetitorColor(i, competitor)"
                             >
                                 {{ competitor.name }}
@@ -70,12 +70,6 @@
                                 class="competitor-sub"
                                 [style.backgroundColor]="getCompetitorColor(i, competitor)"
                             >
-                                Δ
-                            </th>
-                            <th
-                                class="competitor-sub"
-                                [style.backgroundColor]="getCompetitorColor(i, competitor)"
-                            >
                                 URL
                             </th>
                         }
@@ -86,6 +80,9 @@
                         <tr>
                             <td class="sticky-col">
                                 <div class="font-medium">{{ row.description }}</div>
+                                <div class="text-xs text-secondary">
+                                    Marca: {{ row.brandName ?? '—' }}
+                                </div>
                                 <div class="text-xs text-secondary">SKU: {{ row.sku ?? '—' }}</div>
                             </td>
                             <td class="sticky-col">{{ row.ean ?? '—' }}</td>
@@ -110,7 +107,36 @@
                                 >
                                     @if (row.pricesByCompetitor[competitor.id]?.listPrice !== null &&
                                     row.pricesByCompetitor[competitor.id]?.listPrice !== undefined) {
-                                        {{ row.pricesByCompetitor[competitor.id]?.listPrice | number: '1.0-0' }}
+                                        <div class="price-stack">
+                                            <div class="price-main">
+                                                {{ row.pricesByCompetitor[competitor.id]?.listPrice | number: '1.0-0' }}
+                                            </div>
+                                            @if (
+                                            (row.deltaListByCompetitor[competitor.id]?.amount !== null &&
+                                            row.deltaListByCompetitor[competitor.id]?.amount !== undefined) ||
+                                            (row.deltaListByCompetitor[competitor.id]?.percent !== null &&
+                                            row.deltaListByCompetitor[competitor.id]?.percent !== undefined)
+                                            ) {
+                                                <div
+                                                    class="delta-stack"
+                                                    [class.delta-up]="(row.deltaListByCompetitor[competitor.id]?.amount ?? 0) > 0"
+                                                    [class.delta-down]="(row.deltaListByCompetitor[competitor.id]?.amount ?? 0) < 0"
+                                                    [class.delta-flat]="(row.deltaListByCompetitor[competitor.id]?.amount ?? 0) === 0"
+                                                >
+                                                    <div class="delta-cell">
+                                                        <span class="delta-indicator">
+                                                            @if (row.deltaListByCompetitor[competitor.id]?.amount > 0) { ▲ } @else if (row.deltaListByCompetitor[competitor.id]?.amount < 0) { ▼ } @else { ● }
+                                                        </span>
+                                                        <span class="delta-value">
+                                                            {{ row.deltaListByCompetitor[competitor.id]?.amount > 0 ? '+' : '' }}{{ row.deltaListByCompetitor[competitor.id]?.amount | number: '1.0-0' }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="delta-sub">
+                                                        {{ row.deltaListByCompetitor[competitor.id]?.percent > 0 ? '+' : '' }}{{ row.deltaListByCompetitor[competitor.id]?.percent | number: '1.1-1' }}%
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
                                     } @else {
                                         —
                                     }
@@ -121,38 +147,35 @@
                                 >
                                     @if (row.pricesByCompetitor[competitor.id]?.promoPrice !== null &&
                                     row.pricesByCompetitor[competitor.id]?.promoPrice !== undefined) {
-                                        {{ row.pricesByCompetitor[competitor.id]?.promoPrice | number: '1.0-0' }}
-                                    } @else {
-                                        —
-                                    }
-                                </td>
-                                <td
-                                    class="competitor-cell"
-                                    [style.backgroundColor]="getCompetitorColor(i, competitor)"
-                                >
-                                    @if (
-                                    (row.deltaByCompetitor[competitor.id]?.amount !== null &&
-                                    row.deltaByCompetitor[competitor.id]?.amount !== undefined) ||
-                                    (row.deltaByCompetitor[competitor.id]?.percent !== null &&
-                                    row.deltaByCompetitor[competitor.id]?.percent !== undefined)
-                                    ) {
-                                        <div
-                                            class="delta-stack"
-                                            [class.delta-up]="(row.deltaByCompetitor[competitor.id]?.amount ?? 0) > 0"
-                                            [class.delta-down]="(row.deltaByCompetitor[competitor.id]?.amount ?? 0) < 0"
-                                            [class.delta-flat]="(row.deltaByCompetitor[competitor.id]?.amount ?? 0) === 0"
-                                        >
-                                            <div class="delta-cell">
-                                                <span class="delta-indicator">
-                                                    @if (row.deltaByCompetitor[competitor.id]?.amount > 0) { ▲ } @else if (row.deltaByCompetitor[competitor.id]?.amount < 0) { ▼ } @else { ● }
-                                                </span>
-                                                <span class="delta-value">
-                                                    {{ row.deltaByCompetitor[competitor.id]?.amount > 0 ? '+' : '' }}{{ row.deltaByCompetitor[competitor.id]?.amount | number: '1.0-0' }}
-                                                </span>
+                                        <div class="price-stack">
+                                            <div class="price-main">
+                                                {{ row.pricesByCompetitor[competitor.id]?.promoPrice | number: '1.0-0' }}
                                             </div>
-                                            <div class="delta-sub">
-                                                {{ row.deltaByCompetitor[competitor.id]?.percent > 0 ? '+' : '' }}{{ row.deltaByCompetitor[competitor.id]?.percent | number: '1.1-1' }}%
-                                            </div>
+                                            @if (
+                                            (row.deltaPromoByCompetitor[competitor.id]?.amount !== null &&
+                                            row.deltaPromoByCompetitor[competitor.id]?.amount !== undefined) ||
+                                            (row.deltaPromoByCompetitor[competitor.id]?.percent !== null &&
+                                            row.deltaPromoByCompetitor[competitor.id]?.percent !== undefined)
+                                            ) {
+                                                <div
+                                                    class="delta-stack"
+                                                    [class.delta-up]="(row.deltaPromoByCompetitor[competitor.id]?.amount ?? 0) > 0"
+                                                    [class.delta-down]="(row.deltaPromoByCompetitor[competitor.id]?.amount ?? 0) < 0"
+                                                    [class.delta-flat]="(row.deltaPromoByCompetitor[competitor.id]?.amount ?? 0) === 0"
+                                                >
+                                                    <div class="delta-cell">
+                                                        <span class="delta-indicator">
+                                                            @if (row.deltaPromoByCompetitor[competitor.id]?.amount > 0) { ▲ } @else if (row.deltaPromoByCompetitor[competitor.id]?.amount < 0) { ▼ } @else { ● }
+                                                        </span>
+                                                        <span class="delta-value">
+                                                            {{ row.deltaPromoByCompetitor[competitor.id]?.amount > 0 ? '+' : '' }}{{ row.deltaPromoByCompetitor[competitor.id]?.amount | number: '1.0-0' }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="delta-sub">
+                                                        {{ row.deltaPromoByCompetitor[competitor.id]?.percent > 0 ? '+' : '' }}{{ row.deltaPromoByCompetitor[competitor.id]?.percent | number: '1.1-1' }}%
+                                                    </div>
+                                                </div>
+                                            }
                                         </div>
                                     } @else {
                                         —

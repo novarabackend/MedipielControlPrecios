@@ -14,6 +14,7 @@ export interface SnapshotRow {
     sku: string | null;
     ean: string | null;
     description: string;
+    brandName: string | null;
     medipielListPrice: number | null;
     medipielPromoPrice: number | null;
     prices: SnapshotPrice[];

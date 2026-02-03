@@ -25,8 +25,8 @@ interface CompetitorDelta {
 
 interface SnapshotRowView extends SnapshotRow {
     pricesByCompetitor: Record<number, SnapshotPrice>;
-    deltaByCompetitor: Record<number, CompetitorDelta>;
-    basePrice: number | null;
+    deltaListByCompetitor: Record<number, CompetitorDelta>;
+    deltaPromoByCompetitor: Record<number, CompetitorDelta>;
 }
 
 @Component({
@@ -51,41 +51,57 @@ export class SnapshotsHistoryComponent {
     readonly rowsView = computed<SnapshotRowView[]>(() =>
         this.rows().map((row) => {
             const pricesByCompetitor: Record<number, SnapshotPrice> = {};
-            const deltaByCompetitor: Record<number, CompetitorDelta> = {};
+            const deltaListByCompetitor: Record<number, CompetitorDelta> = {};
+            const deltaPromoByCompetitor: Record<number, CompetitorDelta> = {};
             for (const price of row.prices) {
                 pricesByCompetitor[price.competitorId] = price;
             }
 
-            const basePrice =
-                row.medipielPromoPrice ?? row.medipielListPrice ?? null;
+            const baseListPrice = row.medipielListPrice ?? null;
+            const basePromoPrice = row.medipielPromoPrice ?? null;
 
             for (const competitor of this.competitors()) {
                 const price = pricesByCompetitor[competitor.id];
-                if (!price || basePrice === null) {
-                    deltaByCompetitor[competitor.id] = {
+                const listPrice = price?.listPrice;
+                const promoPrice = price?.promoPrice;
+
+                if (!price || baseListPrice === null || listPrice === null || listPrice === undefined) {
+                    deltaListByCompetitor[competitor.id] = {
                         amount: null,
                         percent: null,
                     };
-                    continue;
+                } else {
+                    const amount = listPrice - baseListPrice;
+                    const percent =
+                        baseListPrice !== 0 ? (amount / baseListPrice) * 100 : null;
+                    deltaListByCompetitor[competitor.id] = {
+                        amount,
+                        percent,
+                    };
                 }
-                const competitorPrice = price.promoPrice ?? price.listPrice;
-                if (competitorPrice === null || competitorPrice === undefined) {
-                    deltaByCompetitor[competitor.id] = {
+
+                if (!price || basePromoPrice === null || promoPrice === null || promoPrice === undefined) {
+                    deltaPromoByCompetitor[competitor.id] = {
                         amount: null,
                         percent: null,
                     };
-                    continue;
+                } else {
+                    const amount = promoPrice - basePromoPrice;
+                    const percent =
+                        basePromoPrice !== 0 ? (amount / basePromoPrice) * 100 : null;
+                    deltaPromoByCompetitor[competitor.id] = {
+                        amount,
+                        percent,
+                    };
                 }
-                const amount = competitorPrice - basePrice;
-                const percent =
-                    basePrice !== 0 ? (amount / basePrice) * 100 : null;
-                deltaByCompetitor[competitor.id] = {
-                    amount,
-                    percent,
-                };
             }
 
-            return { ...row, pricesByCompetitor, deltaByCompetitor, basePrice };
+            return {
+                ...row,
+                pricesByCompetitor,
+                deltaListByCompetitor,
+                deltaPromoByCompetitor,
+            };
         })
     );
     readonly hasItems = computed(() => this.rowsView().length > 0);

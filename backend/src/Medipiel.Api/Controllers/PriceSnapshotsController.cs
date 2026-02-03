@@ -67,6 +67,8 @@ public class PriceSnapshotsController : ControllerBase
         var flat = await (
             from ps in _db.PriceSnapshots.AsNoTracking()
             join p in _db.Products.AsNoTracking() on ps.ProductId equals p.Id
+            join b in _db.Brands.AsNoTracking() on p.BrandId equals b.Id into bJoin
+            from b in bJoin.DefaultIfEmpty()
             join c in _db.Competitors.AsNoTracking() on ps.CompetitorId equals c.Id
             join cp in _db.CompetitorProducts.AsNoTracking()
                 on new { ps.ProductId, ps.CompetitorId } equals new { cp.ProductId, cp.CompetitorId }
@@ -78,6 +80,7 @@ public class PriceSnapshotsController : ControllerBase
                 p.Sku,
                 p.Ean,
                 p.Description,
+                b != null ? b.Name : null,
                 p.MedipielListPrice,
                 p.MedipielPromoPrice,
                 c.Id,
@@ -95,6 +98,7 @@ public class PriceSnapshotsController : ControllerBase
                 item.Sku,
                 item.Ean,
                 item.Description,
+                item.BrandName,
                 item.MedipielListPrice,
                 item.MedipielPromoPrice
             })
@@ -103,6 +107,7 @@ public class PriceSnapshotsController : ControllerBase
                 group.Key.Sku,
                 group.Key.Ean,
                 group.Key.Description,
+                group.Key.BrandName,
                 group.Key.MedipielListPrice,
                 group.Key.MedipielPromoPrice,
                 group.Select(item => new SnapshotPrice(
@@ -195,6 +200,7 @@ public sealed record SnapshotRow(
     string? Sku,
     string? Ean,
     string Description,
+    string? BrandName,
     decimal? MedipielListPrice,
     decimal? MedipielPromoPrice,
     List<SnapshotPrice> Prices
@@ -212,6 +218,7 @@ public sealed record SnapshotFlat(
     string? Sku,
     string? Ean,
     string Description,
+    string? BrandName,
     decimal? MedipielListPrice,
     decimal? MedipielPromoPrice,
     int CompetitorId,

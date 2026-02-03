@@ -74,6 +74,17 @@ table {
     border-left: 1px solid #e2e8f0;
 }
 
+.price-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.price-main {
+    font-weight: 600;
+}
+
 .delta-cell {
     display: flex;
     align-items: center;
