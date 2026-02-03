@@ -43,4 +43,11 @@ export class PriceSnapshotsService {
             params,
         });
     }
+
+    getByDate(date: string, take = 200): Observable<LatestSnapshotResponse> {
+        const params = new HttpParams().set('take', take).set('date', date);
+        return this._http.get<LatestSnapshotResponse>(`${API_BASE}/price-snapshots/by-date`, {
+            params,
+        });
+    }
 }

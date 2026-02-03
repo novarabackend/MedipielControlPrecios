@@ -21,6 +21,27 @@ public class PriceSnapshotsController : ControllerBase
         var latestDate = await _db.PriceSnapshots
             .MaxAsync(x => (DateOnly?)x.SnapshotDate, ct);
 
+        var response = await BuildSnapshotResponse(latestDate, take, ct);
+        return Ok(response);
+    }
+
+    [HttpGet("by-date")]
+    public async Task<IActionResult> GetByDate([FromQuery] DateOnly? date, [FromQuery] int? take, CancellationToken ct)
+    {
+        if (date is null)
+        {
+            return BadRequest("date is required (YYYY-MM-DD).");
+        }
+
+        var response = await BuildSnapshotResponse(date.Value, take, ct);
+        return Ok(response);
+    }
+
+    private async Task<LatestSnapshotPivotResponse> BuildSnapshotResponse(
+        DateOnly? snapshotDate,
+        int? take,
+        CancellationToken ct)
+    {
         var competitors = await _db.Competitors
             .AsNoTracking()
             .Where(x => x.IsActive)
@@ -32,9 +53,9 @@ public class PriceSnapshotsController : ControllerBase
             .Select(x => new CompetitorInfo(x.Id, x.Name, ResolveColor(x.Name)))
             .ToList();
 
-        if (latestDate is null)
+        if (snapshotDate is null)
         {
-            return Ok(new LatestSnapshotPivotResponse(null, orderedCompetitors, new List<SnapshotRow>()));
+            return new LatestSnapshotPivotResponse(null, orderedCompetitors, new List<SnapshotRow>());
         }
 
         var limit = take.GetValueOrDefault(200);
@@ -51,7 +72,7 @@ public class PriceSnapshotsController : ControllerBase
                 on new { ps.ProductId, ps.CompetitorId } equals new { cp.ProductId, cp.CompetitorId }
                 into cpJoin
             from cp in cpJoin.DefaultIfEmpty()
-            where ps.SnapshotDate == latestDate.Value
+            where ps.SnapshotDate == snapshotDate.Value
             select new SnapshotFlat(
                 p.Id,
                 p.Sku,
@@ -95,7 +116,7 @@ public class PriceSnapshotsController : ControllerBase
             .Take(limit)
             .ToList();
 
-        return Ok(new LatestSnapshotPivotResponse(latestDate, orderedCompetitors, rows));
+        return new LatestSnapshotPivotResponse(snapshotDate, orderedCompetitors, rows);
     }
 
     private static string? ResolveColor(string name)

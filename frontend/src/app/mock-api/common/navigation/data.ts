@@ -64,6 +64,13 @@ const resultsGroup: FuseNavigationItem = {
             icon: 'heroicons_outline:chart-bar-square',
             link: '/results/latest',
         },
+        {
+            id: 'results.history',
+            title: 'Historico',
+            type: 'basic',
+            icon: 'heroicons_outline:calendar-days',
+            link: '/results/history',
+        },
     ],
 };
 
