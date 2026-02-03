@@ -163,4 +163,11 @@ export class SnapshotsHistoryComponent {
     getCompetitorColor(index: number, competitor: CompetitorInfo): string {
         return competitor.color ?? this.colorPalette[index % this.colorPalette.length];
     }
+
+    isLargeDelta(delta: CompetitorDelta | undefined | null): boolean {
+        if (!delta || delta.percent === null || delta.percent === undefined) {
+            return false;
+        }
+        return Math.abs(delta.percent) >= 30;
+    }
 }

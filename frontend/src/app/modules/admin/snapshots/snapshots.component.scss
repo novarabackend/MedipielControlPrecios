@@ -59,6 +59,15 @@ table {
     border-left: 1px solid #e2e8f0;
 }
 
+.delta-alert {
+    box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.85);
+    background-image: linear-gradient(
+        135deg,
+        rgba(253, 230, 138, 0.45),
+        rgba(255, 255, 255, 0)
+    );
+}
+
 .price-stack {
     display: flex;
     flex-direction: column;
