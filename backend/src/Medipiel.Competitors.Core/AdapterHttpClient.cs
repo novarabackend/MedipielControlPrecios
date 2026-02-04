@@ -52,4 +52,24 @@ public sealed class AdapterHttpClient
 
         return await response.Content.ReadAsStringAsync(ct);
     }
+
+    public async Task<string?> PostAsync(string url, HttpContent? content, int delayMs, CancellationToken ct)
+    {
+        if (delayMs > 0)
+        {
+            await Task.Delay(delayMs, ct);
+        }
+
+        using var response = await _httpClient.PostAsync(url, content, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}",
+                null,
+                response.StatusCode
+            );
+        }
+
+        return await response.Content.ReadAsStringAsync(ct);
+    }
 }

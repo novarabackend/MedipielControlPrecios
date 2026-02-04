@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Medipiel.Api.Data;
 using Medipiel.Api.Models;
 using Medipiel.Competitors.Abstractions;
@@ -43,12 +44,21 @@ public sealed class CompetitorRunService
 
         var summary = new RunnerSummary { RunId = runId };
 
+        _logger.LogInformation(
+            "Scheduler run {RunId} started. Competitors={Count} OnlyNew={OnlyNew} BatchSize={BatchSize}.",
+            runId,
+            competitors.Count,
+            onlyNew,
+            batchSize
+        );
+
         foreach (var competitor in competitors)
         {
             if (string.IsNullOrWhiteSpace(competitor.AdapterId))
             {
                 summary.Skipped += 1;
                 summary.Messages.Add($"Competidor {competitor.Name} sin AdapterId.");
+                _logger.LogWarning("Run {RunId}: competidor {Name} sin AdapterId.", runId, competitor.Name);
                 continue;
             }
 
@@ -57,6 +67,7 @@ public sealed class CompetitorRunService
             {
                 summary.Errors += 1;
                 summary.Messages.Add($"Adapter no encontrado: {competitor.AdapterId}.");
+                _logger.LogWarning("Run {RunId}: adapter no encontrado {AdapterId}.", runId, competitor.AdapterId);
                 continue;
             }
 
@@ -72,11 +83,32 @@ public sealed class CompetitorRunService
 
             try
             {
+                _logger.LogInformation(
+                    "Run {RunId}: iniciando {Competitor} ({AdapterId}).",
+                    runId,
+                    competitor.Name,
+                    competitor.AdapterId
+                );
+
+                var stopwatch = Stopwatch.StartNew();
                 var result = await adapter.RunAsync(context, ct);
+                stopwatch.Stop();
+
                 summary.Processed += result.Processed;
                 summary.Created += result.Created;
                 summary.Updated += result.Updated;
                 summary.Errors += result.Errors;
+
+                _logger.LogInformation(
+                    "Run {RunId}: finalizo {Competitor} ({AdapterId}) en {ElapsedMs}ms. Processed={Processed} Updated={Updated} Errors={Errors}.",
+                    runId,
+                    competitor.Name,
+                    competitor.AdapterId,
+                    stopwatch.ElapsedMilliseconds,
+                    result.Processed,
+                    result.Updated,
+                    result.Errors
+                );
             }
             catch (Exception ex)
             {
@@ -85,6 +117,15 @@ public sealed class CompetitorRunService
                 summary.Messages.Add($"Error ejecutando {competitor.Name}: {ex.Message}");
             }
         }
+
+        _logger.LogInformation(
+            "Scheduler run {RunId} finished. Processed={Processed} Updated={Updated} Errors={Errors} Skipped={Skipped}.",
+            runId,
+            summary.Processed,
+            summary.Updated,
+            summary.Errors,
+            summary.Skipped
+        );
 
         return summary;
     }

@@ -41,6 +41,16 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
         );
 
         var counters = new Counters();
+        var noMatchCount = 0;
+        var total = products.Count;
+        var logEvery = Math.Max(25, total / 10);
+
+        Logger.LogInformation(
+            "Farmatodo: inicio {Total} productos (OnlyNew={OnlyNew}, BatchSize={BatchSize}).",
+            total,
+            context.OnlyNew,
+            context.BatchSize
+        );
 
         foreach (var product in products)
         {
@@ -75,7 +85,8 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
 
             if (item is null || string.IsNullOrWhiteSpace(item.ItemUrl))
             {
-                counters.Errors += 1;
+                await db.MarkNoMatchAsync(product.Id, context.CompetitorId, ct);
+                noMatchCount += 1;
                 continue;
             }
 
@@ -108,7 +119,26 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
             );
 
             counters.Updated += 1;
+
+            if (counters.Processed % logEvery == 0 || counters.Processed == total)
+            {
+                Logger.LogInformation(
+                    "Farmatodo: progreso {Processed}/{Total} (Updated={Updated}, Errors={Errors}).",
+                    counters.Processed,
+                    total,
+                    counters.Updated,
+                    counters.Errors
+                );
+            }
         }
+
+        Logger.LogInformation(
+            "Farmatodo: fin Processed={Processed} Updated={Updated} Errors={Errors} NoMatch={NoMatch}.",
+            counters.Processed,
+            counters.Updated,
+            counters.Errors,
+            noMatchCount
+        );
 
         return new AdapterRunResult(
             counters.Processed,

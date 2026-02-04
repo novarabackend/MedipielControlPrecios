@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Medipiel.Competitors.BellaP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Medipiel.Competitors.Farmatodo", "src\Medipiel.Competitors.Farmatodo\Medipiel.Competitors.Farmatodo.csproj", "{5AC98491-8A77-4E54-8140-644515560575}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Medipiel.Competitors.CruzVerde", "src\Medipiel.Competitors.CruzVerde\Medipiel.Competitors.CruzVerde.csproj", "{DF580BFC-E3E7-4381-9407-A99179D71B61}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,18 @@ Global
 		{5AC98491-8A77-4E54-8140-644515560575}.Release|x64.Build.0 = Release|Any CPU
 		{5AC98491-8A77-4E54-8140-644515560575}.Release|x86.ActiveCfg = Release|Any CPU
 		{5AC98491-8A77-4E54-8140-644515560575}.Release|x86.Build.0 = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|x64.Build.0 = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Debug|x86.Build.0 = Debug|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|x64.ActiveCfg = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|x64.Build.0 = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|x86.ActiveCfg = Release|Any CPU
+		{DF580BFC-E3E7-4381-9407-A99179D71B61}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -110,5 +124,6 @@ Global
 		{17A292B6-66D7-42AF-926B-EDA905D9F0BA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A181A846-55F6-496E-A23C-C64DEA0EC382} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{5AC98491-8A77-4E54-8140-644515560575} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{DF580BFC-E3E7-4381-9407-A99179D71B61} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

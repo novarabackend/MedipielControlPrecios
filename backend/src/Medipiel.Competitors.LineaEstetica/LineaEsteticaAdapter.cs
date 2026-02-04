@@ -33,10 +33,17 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
 
         var stats = new AdapterRunResult(0, 0, 0, 0, null);
         var counters = new Counters();
+        var total = products.Count;
 
         var targets = products
             .Where(p => !string.IsNullOrWhiteSpace(p.Ean))
             .ToDictionary(p => p.Ean!, p => p, StringComparer.OrdinalIgnoreCase);
+
+        Logger.LogInformation(
+            "LineaEstetica: inicio {Total} productos (EAN disponibles={Targets}).",
+            total,
+            targets.Count
+        );
 
         if (targets.Count > 0)
         {
@@ -50,6 +57,13 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
             counters.Updated,
             counters.Errors,
             null
+        );
+
+        Logger.LogInformation(
+            "LineaEstetica: fin Processed={Processed} Updated={Updated} Errors={Errors}.",
+            counters.Processed,
+            counters.Updated,
+            counters.Errors
         );
 
         return stats;
@@ -73,6 +87,7 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
 
         while (targets.Count > 0)
         {
+            Logger.LogInformation("LineaEstetica: pagina {Page}, pendientes {Pending}.", page, targets.Count);
             var apiUrl = $"{baseUrl}/wp-json/wc/store/products?per_page=100&page={page}";
             var json = await GetHtmlAsync(apiUrl, delayMs, ct);
             if (string.IsNullOrWhiteSpace(json))
@@ -137,6 +152,15 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
             }
 
             page += 1;
+        }
+
+        if (targets.Count > 0)
+        {
+            Logger.LogInformation("LineaEstetica: no_match para {Count} productos.", targets.Count);
+            foreach (var remaining in targets.Values)
+            {
+                await db.MarkNoMatchAsync(remaining.Id, context.CompetitorId, ct);
+            }
         }
     }
 

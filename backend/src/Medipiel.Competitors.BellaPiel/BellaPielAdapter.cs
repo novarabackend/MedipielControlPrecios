@@ -44,6 +44,16 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         );
 
         var counters = new Counters();
+        var noMatchCount = 0;
+        var total = products.Count;
+        var logEvery = Math.Max(25, total / 10);
+
+        Logger.LogInformation(
+            "BellaPiel: inicio {Total} productos (OnlyNew={OnlyNew}, BatchSize={BatchSize}).",
+            total,
+            context.OnlyNew,
+            context.BatchSize
+        );
 
         foreach (var product in products)
         {
@@ -65,9 +75,15 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                     continue;
                 }
 
-                if (await TrySyncBySearchAsync(db, context, product, delayMs, minScore, useAi, aiMinConfidence, aiCandidates, ct))
+                var outcome = await TrySyncBySearchAsync(db, context, product, delayMs, minScore, useAi, aiMinConfidence, aiCandidates, ct);
+                if (outcome == MatchOutcome.Matched)
                 {
                     counters.Updated += 1;
+                }
+                else if (outcome == MatchOutcome.NoMatch)
+                {
+                    await db.MarkNoMatchAsync(product.Id, context.CompetitorId, ct);
+                    noMatchCount += 1;
                 }
                 else
                 {
@@ -79,7 +95,27 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                 Logger.LogWarning(ex, "BellaPiel: error procesando producto {ProductId}", product.Id);
                 counters.Errors += 1;
             }
+
+            if (counters.Processed % logEvery == 0 || counters.Processed == total)
+            {
+                Logger.LogInformation(
+                    "BellaPiel: progreso {Processed}/{Total} (Updated={Updated}, Errors={Errors}, NoMatch={NoMatch}).",
+                    counters.Processed,
+                    total,
+                    counters.Updated,
+                    counters.Errors,
+                    noMatchCount
+                );
+            }
         }
+
+        Logger.LogInformation(
+            "BellaPiel: fin Processed={Processed} Updated={Updated} Errors={Errors} NoMatch={NoMatch}.",
+            counters.Processed,
+            counters.Updated,
+            counters.Errors,
+            noMatchCount
+        );
 
         return new AdapterRunResult(
             counters.Processed,
@@ -144,7 +180,7 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         return true;
     }
 
-    private async Task<bool> TrySyncBySearchAsync(
+    private async Task<MatchOutcome> TrySyncBySearchAsync(
         CompetitorDb db,
         AdapterContext context,
         ProductRow product,
@@ -158,7 +194,7 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         var query = BuildSearchQuery(product.Description);
         if (string.IsNullOrWhiteSpace(query))
         {
-            return false;
+            return MatchOutcome.NoMatch;
         }
 
         var baseUrl = context.BaseUrl.TrimEnd('/');
@@ -166,20 +202,20 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         var json = await GetHtmlAsync(apiUrl, delayMs, ct);
         if (string.IsNullOrWhiteSpace(json))
         {
-            return false;
+            return MatchOutcome.Error;
         }
 
         var candidates = ParseProducts(json);
         if (candidates.Count == 0)
         {
-            return false;
+            return MatchOutcome.NoMatch;
         }
 
         var ranked = RankCandidates(product.Description, candidates);
         var best = ranked.FirstOrDefault();
         if (best?.Product is null)
         {
-            return false;
+            return MatchOutcome.Error;
         }
 
         if (best.Score < minScore && useAi)
@@ -190,7 +226,7 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                 var aiUrl = BuildProductUrl(baseUrl, selection.Product);
                 if (string.IsNullOrWhiteSpace(aiUrl))
                 {
-                    return false;
+                    return MatchOutcome.Error;
                 }
 
                 var aiPrices = ResolvePrices(selection.Product);
@@ -213,7 +249,7 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                     ct
                 );
 
-                return true;
+                return MatchOutcome.Matched;
             }
         }
 
@@ -224,13 +260,13 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                 product.Id,
                 best.Score
             );
-            return false;
+            return MatchOutcome.NoMatch;
         }
 
         var url = BuildProductUrl(baseUrl, best.Product);
         if (string.IsNullOrWhiteSpace(url))
         {
-            return false;
+            return MatchOutcome.Error;
         }
 
         var prices = ResolvePrices(best.Product);
@@ -253,7 +289,14 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
             ct
         );
 
-        return true;
+        return MatchOutcome.Matched;
+    }
+
+    private enum MatchOutcome
+    {
+        Matched,
+        NoMatch,
+        Error
     }
 
     private static string? ExtractSlugFromUrl(string url)

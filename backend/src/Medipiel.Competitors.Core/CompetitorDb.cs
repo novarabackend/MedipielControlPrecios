@@ -36,6 +36,7 @@ LEFT JOIN CompetitorProducts cp
 LEFT JOIN PriceSnapshots ps
     ON ps.ProductId = p.Id AND ps.CompetitorId = @CompetitorId AND ps.SnapshotDate = @SnapshotDate
 WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
+  AND NOT (cp.MatchMethod = 'no_match' AND cp.Url IS NULL)
   AND (@OnlyNew = 0 OR ps.Id IS NULL);
 ";
 
@@ -65,7 +66,7 @@ WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
     public async Task<bool> UpsertCompetitorProductAsync(
         int productId,
         int competitorId,
-        string url,
+        string? url,
         string? matchMethod,
         decimal? matchScore,
         DateTime? lastMatchedAt,
@@ -93,12 +94,25 @@ END
         await using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@ProductId", productId);
         command.Parameters.AddWithValue("@CompetitorId", competitorId);
-        command.Parameters.AddWithValue("@Url", url);
+        command.Parameters.AddWithValue("@Url", (object?)url ?? DBNull.Value);
         command.Parameters.AddWithValue("@MatchMethod", (object?)matchMethod ?? DBNull.Value);
         command.Parameters.AddWithValue("@MatchScore", (object?)matchScore ?? DBNull.Value);
         command.Parameters.AddWithValue("@LastMatchedAt", (object?)lastMatchedAt ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(ct);
         return true;
+    }
+
+    public Task<bool> MarkNoMatchAsync(int productId, int competitorId, CancellationToken ct)
+    {
+        return UpsertCompetitorProductAsync(
+            productId,
+            competitorId,
+            null,
+            "no_match",
+            null,
+            DateTime.UtcNow,
+            ct
+        );
     }
 
     public async Task<bool> UpsertPriceSnapshotAsync(
