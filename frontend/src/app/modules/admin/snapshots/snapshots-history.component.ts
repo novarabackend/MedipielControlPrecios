@@ -9,6 +9,9 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { finalize } from 'rxjs/operators';
 import {
     LatestSnapshotResponse,
@@ -17,6 +20,9 @@ import {
     PriceSnapshotsService,
     CompetitorInfo,
 } from 'app/core/price-snapshots/price-snapshots.service';
+import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
+import { MasterItem, MastersService } from 'app/core/masters/masters.service';
+import { ReportsService } from 'app/core/reports/reports.service';
 
 interface CompetitorDelta {
     amount: number | null;
@@ -34,15 +40,35 @@ interface SnapshotRowView extends SnapshotRow {
     templateUrl: './snapshots-history.component.html',
     styleUrls: ['./snapshots-history.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [CommonModule, MatButtonModule, MatIconModule, MatTableModule],
+    imports: [
+        CommonModule,
+        MatButtonModule,
+        MatIconModule,
+        MatTableModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatSelectModule,
+    ],
 })
 export class SnapshotsHistoryComponent {
     private _service = inject(PriceSnapshotsService);
+    private _alertsService = inject(AlertsService);
+    private _mastersService = inject(MastersService);
+    private _reportsService = inject(ReportsService);
 
     readonly loading = signal(false);
     readonly error = signal('');
     readonly data = signal<LatestSnapshotResponse | null>(null);
     readonly selectedDate = signal('');
+    readonly alertRules = signal<AlertRule[]>([]);
+    readonly brands = signal<MasterItem[]>([]);
+    readonly categories = signal<MasterItem[]>([]);
+    readonly reportFrom = signal('');
+    readonly reportTo = signal('');
+    readonly reportBrandId = signal<number | null>(null);
+    readonly reportCategoryId = signal<number | null>(null);
+    readonly exporting = signal(false);
+    readonly exportError = signal('');
 
     readonly competitors = computed<CompetitorInfo[]>(
         () => this.data()?.competitors ?? []
@@ -116,6 +142,8 @@ export class SnapshotsHistoryComponent {
 
     constructor() {
         this.loadLatest();
+        this.loadAlertRules();
+        this.loadMasters();
     }
 
     loadLatest(): void {
@@ -134,6 +162,61 @@ export class SnapshotsHistoryComponent {
                 },
                 error: () => this.error.set('No se pudo cargar el ultimo snapshot.'),
             });
+    }
+
+    loadMasters(): void {
+        this._mastersService.getBrands().subscribe({
+            next: (items) => this.brands.set(items),
+            error: () => this.brands.set([]),
+        });
+        this._mastersService.getCategories().subscribe({
+            next: (items) => this.categories.set(items),
+            error: () => this.categories.set([]),
+        });
+    }
+
+    exportExcel(): void {
+        const from = this.reportFrom() || this.selectedDate();
+        const to = this.reportTo() || from;
+
+        if (!from) {
+            this.exportError.set('Selecciona un rango de fechas para exportar.');
+            return;
+        }
+
+        this.exporting.set(true);
+        this.exportError.set('');
+
+        this._reportsService
+            .downloadExcel({
+                from,
+                to,
+                brandId: this.reportBrandId(),
+                categoryId: this.reportCategoryId(),
+            })
+            .pipe(finalize(() => this.exporting.set(false)))
+            .subscribe({
+                next: (blob) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `reporte_precios_${from}_${to}.xlsx`;
+                    link.click();
+                    window.setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                    }, 0);
+                },
+                error: () => {
+                    this.exportError.set('No se pudo exportar el reporte.');
+                },
+            });
+    }
+
+    loadAlertRules(): void {
+        this._alertsService.getRules().subscribe({
+            next: (rules) => this.alertRules.set(rules),
+            error: () => this.alertRules.set([]),
+        });
     }
 
     onDateChange(event: Event): void {
@@ -164,10 +247,40 @@ export class SnapshotsHistoryComponent {
         return competitor.color ?? this.colorPalette[index % this.colorPalette.length];
     }
 
-    isLargeDelta(delta: CompetitorDelta | undefined | null): boolean {
+    isLargeDelta(
+        delta: CompetitorDelta | undefined | null,
+        brandName: string | null,
+        type: 'list' | 'promo'
+    ): boolean {
         if (!delta || delta.percent === null || delta.percent === undefined) {
             return false;
         }
-        return Math.abs(delta.percent) >= 30;
+        const threshold = this.getThreshold(brandName, type);
+        if (threshold === null) {
+            return false;
+        }
+        return Math.abs(delta.percent) >= threshold;
+    }
+
+    private getThreshold(
+        brandName: string | null,
+        type: 'list' | 'promo'
+    ): number | null {
+        const defaultThreshold = 30;
+        if (!brandName) {
+            return defaultThreshold;
+        }
+
+        const rule = this.alertRules().find(
+            (item) => item.brandName.toLowerCase() === brandName.toLowerCase()
+        );
+
+        if (!rule || !rule.active) {
+            return defaultThreshold;
+        }
+
+        return type === 'list'
+            ? rule.listPriceThresholdPercent ?? defaultThreshold
+            : rule.promoPriceThresholdPercent ?? defaultThreshold;
     }
 }

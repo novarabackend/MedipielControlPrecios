@@ -133,16 +133,158 @@
     <div class="bg-card mt-6 rounded-2xl p-6 shadow">
         <div class="flex items-center justify-between">
             <div class="text-lg font-medium">Listado</div>
-            <div class="text-secondary text-sm">Total: {{ items().length }}</div>
+            <div class="text-secondary text-sm">
+                Mostrando {{ filteredCount() }} de {{ items().length }}
+            </div>
+        </div>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-7">
+            <mat-form-field class="w-full">
+                <mat-label>EAN</mat-label>
+                <input
+                    matInput
+                    placeholder="Buscar por EAN"
+                    [value]="filterEan()"
+                    (input)="filterEan.set($any($event.target).value)"
+                />
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Nombre</mat-label>
+                <input
+                    matInput
+                    placeholder="Buscar por descripcion"
+                    [value]="filterName()"
+                    (input)="filterName.set($any($event.target).value)"
+                />
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Marca</mat-label>
+                <mat-select
+                    [value]="filterBrand()"
+                    (selectionChange)="filterBrand.set($any($event.value))"
+                >
+                    <mat-option value="">Todas</mat-option>
+                    @for (item of brands(); track item.id) {
+                        <mat-option [value]="item.name">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Proveedor</mat-label>
+                <mat-select
+                    [value]="filterSupplier()"
+                    (selectionChange)="filterSupplier.set($any($event.value))"
+                >
+                    <mat-option value="">Todos</mat-option>
+                    @for (item of suppliers(); track item.id) {
+                        <mat-option [value]="item.name">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Categoria</mat-label>
+                <mat-select
+                    [value]="filterCategory()"
+                    (selectionChange)="filterCategory.set($any($event.value))"
+                >
+                    <mat-option value="">Todas</mat-option>
+                    @for (item of categories(); track item.id) {
+                        <mat-option [value]="item.name">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Linea</mat-label>
+                <mat-select
+                    [value]="filterLine()"
+                    (selectionChange)="filterLine.set($any($event.value))"
+                >
+                    <mat-option value="">Todas</mat-option>
+                    @for (item of lines(); track item.id) {
+                        <mat-option [value]="item.name">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Competidor</mat-label>
+                <mat-select
+                    [value]="filterCompetitor()"
+                    (selectionChange)="filterCompetitor.set($any($event.value))"
+                >
+                    <mat-option [value]="null">Todos</mat-option>
+                    @for (item of competitors(); track item.id) {
+                        <mat-option [value]="item.id">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Estado</mat-label>
+                <mat-select
+                    [value]="filterStatus()"
+                    (selectionChange)="filterStatus.set($any($event.value))"
+                >
+                    <mat-option value="all">Todos</mat-option>
+                    <mat-option value="matched">Con match</mat-option>
+                    <mat-option value="unmatched">Sin match</mat-option>
+                    <mat-option value="no-ean">Sin EAN</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+
+        <div class="mt-2">
+            <button mat-stroked-button type="button" (click)="resetFilters()">
+                Limpiar filtros
+            </button>
+            <button
+                class="ml-2"
+                mat-stroked-button
+                type="button"
+                (click)="exportExcel()"
+                [disabled]="filteredItems().length === 0"
+            >
+                Exportar Excel
+            </button>
+        </div>
+
+        <div class="stats mt-4 grid gap-4 lg:grid-cols-4">
+            <div class="stat-card">
+                <div class="stat-label">Productos monitoreados</div>
+                <div class="stat-value">{{ totalCount() }}</div>
+                <div class="stat-sub">Corte: {{ snapshotDate() }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Match total</div>
+                <div class="stat-value">{{ matchPercent() | number: '1.1-1' }}%</div>
+                <div class="stat-sub">
+                    {{ matchCount() }} con match ({{ getCompetitorLabel() }})
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Alertas brecha &gt; 8%</div>
+                <div class="stat-value">{{ alertCount() }}</div>
+                <div class="stat-sub">Segun competidor seleccionado</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Productos sin EAN</div>
+                <div class="stat-value">{{ noEanCount() }}</div>
+                <div class="stat-sub">Revisar catalogo</div>
+            </div>
         </div>
 
         @if (loading()) {
             <div class="text-secondary mt-4">Cargando...</div>
         } @else {
-            @if (items().length === 0) {
-                <div class="text-secondary mt-4">No hay productos cargados.</div>
+            @if (filteredItems().length === 0) {
+                <div class="text-secondary mt-4">No hay productos para ese filtro.</div>
             } @else {
-                <table mat-table [dataSource]="items()" class="mt-4 w-full">
+                <table mat-table [dataSource]="filteredItems()" class="mt-4 w-full">
                     <ng-container matColumnDef="sku">
                         <th mat-header-cell *matHeaderCellDef>SKU</th>
                         <td mat-cell *matCellDef="let row">{{ row.sku }}</td>
@@ -153,9 +295,79 @@
                         <td mat-cell *matCellDef="let row">{{ row.ean ?? '—' }}</td>
                     </ng-container>
 
+                    <ng-container matColumnDef="brand">
+                        <th mat-header-cell *matHeaderCellDef>Marca</th>
+                        <td mat-cell *matCellDef="let row">{{ row.brandName ?? '—' }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="supplier">
+                        <th mat-header-cell *matHeaderCellDef>Proveedor</th>
+                        <td mat-cell *matCellDef="let row">{{ row.supplierName ?? '—' }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="category">
+                        <th mat-header-cell *matHeaderCellDef>Categoria</th>
+                        <td mat-cell *matCellDef="let row">{{ row.categoryName ?? '—' }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="line">
+                        <th mat-header-cell *matHeaderCellDef>Linea</th>
+                        <td mat-cell *matCellDef="let row">{{ row.lineName ?? '—' }}</td>
+                    </ng-container>
+
                     <ng-container matColumnDef="description">
                         <th mat-header-cell *matHeaderCellDef>Descripcion</th>
-                        <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+                        <td mat-cell *matCellDef="let row">
+                            <div class="description-cell">
+                                <div class="font-medium">{{ row.description }}</div>
+                                <a
+                                    class="mt-2 inline-flex text-sm font-medium text-primary-700 underline"
+                                    [routerLink]="['/catalog/products', row.id]"
+                                >
+                                    Ver detalle
+                                </a>
+                                <div class="hover-preview">
+                                    <div class="hover-header">
+                                        <img
+                                            src="https://medipielsa.vtexassets.com/arquivos/ids/263270-1600-auto?v=638781829135000000&width=1600&height=auto&aspect=true"
+                                            alt="Producto"
+                                        />
+                                        <div>
+                                            <div class="hover-title">{{ row.description }}</div>
+                                            <div class="hover-sub">
+                                                SKU {{ row.sku }} ·
+                                                EAN {{ row.ean ?? '—' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="hover-list">
+                                        <div class="hover-item">
+                                            <span>Medipiel</span>
+                                            <span>
+                                                @if (row.medipielListPrice !== null && row.medipielListPrice !== undefined) {
+                                                    {{ row.medipielListPrice | number: '1.0-0' }}
+                                                } @else {
+                                                    —
+                                                }
+                                            </span>
+                                        </div>
+                                        @for (comp of hoverCompetitors(); track comp.id) {
+                                            <div class="hover-item">
+                                                <span>{{ comp.name }}</span>
+                                                <span>
+                                                    @if (row.pricesByCompetitor[comp.id]?.listPrice !== null &&
+                                                    row.pricesByCompetitor[comp.id]?.listPrice !== undefined) {
+                                                        {{ row.pricesByCompetitor[comp.id]?.listPrice | number: '1.0-0' }}
+                                                    } @else {
+                                                        —
+                                                    }
+                                                </span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
                     </ng-container>
 
                     <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>

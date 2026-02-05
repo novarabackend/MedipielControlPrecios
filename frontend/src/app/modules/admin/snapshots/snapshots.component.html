@@ -104,7 +104,7 @@
                                 <td
                                     class="competitor-cell"
                                     [style.backgroundColor]="getCompetitorColor(i, competitor)"
-                                    [class.delta-alert]="isLargeDelta(row.deltaListByCompetitor[competitor.id])"
+                                    [class.delta-alert]="isLargeDelta(row.deltaListByCompetitor[competitor.id], row.brandName ?? null, 'list')"
                                 >
                                     @if (row.pricesByCompetitor[competitor.id]?.listPrice !== null &&
                                     row.pricesByCompetitor[competitor.id]?.listPrice !== undefined) {
@@ -145,7 +145,7 @@
                                 <td
                                     class="competitor-cell"
                                     [style.backgroundColor]="getCompetitorColor(i, competitor)"
-                                    [class.delta-alert]="isLargeDelta(row.deltaPromoByCompetitor[competitor.id])"
+                                    [class.delta-alert]="isLargeDelta(row.deltaPromoByCompetitor[competitor.id], row.brandName ?? null, 'promo')"
                                 >
                                     @if (row.pricesByCompetitor[competitor.id]?.promoPrice !== null &&
                                     row.pricesByCompetitor[competitor.id]?.promoPrice !== undefined) {

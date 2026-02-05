@@ -1,0 +1,85 @@
+:host {
+    display: block;
+}
+
+.detail-table {
+    border-collapse: collapse;
+    width: 100%;
+
+    th,
+    td {
+        padding: 12px 14px;
+        vertical-align: top;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #1f2937;
+    }
+}
+
+.price-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.price-main {
+    font-weight: 600;
+}
+
+.delta-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.delta-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.delta-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.75;
+}
+
+.delta-indicator {
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.delta-up {
+    color: #15803d;
+}
+
+.delta-down {
+    color: #b91c1c;
+}
+
+.delta-flat {
+    color: #64748b;
+}
+
+.delta-alert {
+    box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.85);
+    background-image: linear-gradient(
+        135deg,
+        rgba(253, 230, 138, 0.35),
+        rgba(255, 255, 255, 0)
+    );
+}
+
+.url-field {
+    min-width: 240px;
+}

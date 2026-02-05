@@ -1,0 +1,346 @@
+<div class="flex min-w-0 flex-auto flex-col p-6 sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <div class="text-2xl font-semibold tracking-tight">
+                Detalle de producto
+            </div>
+            <div class="text-secondary">
+                Ultimo snapshot: {{ snapshotDate() }}
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button mat-stroked-button routerLink="/catalog/products">
+                Volver
+            </button>
+            <button
+                mat-stroked-button
+                type="button"
+                (click)="refresh()"
+                [disabled]="loading()"
+            >
+                Actualizar
+            </button>
+        </div>
+    </div>
+
+    @if (error().length > 0) {
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ error() }}
+        </div>
+    }
+
+    @if (loading()) {
+        <div class="text-secondary mt-6">Cargando...</div>
+    }
+
+    @if (!loading() && !product()) {
+        <div class="mt-6 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-secondary">
+            No se encontro el producto.
+        </div>
+    }
+
+    @if (product()) {
+        <div class="mt-6 grid gap-6 lg:grid-cols-3">
+            <div class="bg-card rounded-2xl p-6 shadow lg:col-span-2">
+                <div class="text-lg font-medium">
+                    {{ product()?.description }}
+                </div>
+                <div class="text-secondary text-sm">
+                    Marca: {{ product()?.brand ?? '—' }} ·
+                    Categoria: {{ product()?.category ?? '—' }} ·
+                    Linea: {{ product()?.line ?? '—' }}
+                </div>
+                <div class="text-secondary text-sm">
+                    Proveedor: {{ product()?.supplier ?? '—' }}
+                </div>
+
+                <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="text-xs uppercase text-secondary">SKU</div>
+                        <div class="text-base font-semibold">
+                            {{ product()?.sku ?? '—' }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="text-xs uppercase text-secondary">EAN</div>
+                        <div class="text-base font-semibold">
+                            {{ product()?.ean ?? '—' }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="text-xs uppercase text-secondary">
+                            Precio lista Medipiel
+                        </div>
+                        <div class="text-base font-semibold">
+                            @if (product()?.medipielListPrice !== null && product()?.medipielListPrice !== undefined) {
+                                {{ product()?.medipielListPrice | number: '1.0-0' }}
+                            } @else {
+                                —
+                            }
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="text-xs uppercase text-secondary">
+                            Precio promo Medipiel
+                        </div>
+                        <div class="text-base font-semibold">
+                            @if (product()?.medipielPromoPrice !== null && product()?.medipielPromoPrice !== undefined) {
+                                {{ product()?.medipielPromoPrice | number: '1.0-0' }}
+                            } @else {
+                                —
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-card rounded-2xl p-6 shadow">
+                <div class="text-lg font-medium">Resumen</div>
+                <div class="text-secondary text-sm">
+                    Informacion del ultimo snapshot.
+                </div>
+                <div class="mt-6 space-y-4 text-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="text-secondary">Fecha</span>
+                        <span>{{ snapshotDate() }}</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="text-secondary">Competidores</span>
+                        <span>{{ competitors().length }}</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="text-secondary">Historial</span>
+                        <span>{{ historyView().length }} dias</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-card mt-6 rounded-2xl p-6 shadow">
+            <div class="text-lg font-medium">Comparativo por competidor</div>
+            <div class="text-secondary text-sm">
+                Precios actuales y match por competidor.
+            </div>
+
+            @if (competitorRows().length === 0) {
+                <div class="mt-4 text-secondary text-sm">
+                    No hay informacion de competidores aun.
+                </div>
+            } @else {
+                <div class="mt-4 overflow-auto rounded-xl border border-slate-200 bg-white">
+                    <table class="detail-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Competidor</th>
+                                <th>Precio lista</th>
+                                <th>Precio promo</th>
+                                <th>Match</th>
+                                <th>URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (row of competitorRows(); track row.competitor.id) {
+                                <tr>
+                                    <td>
+                                        <div class="font-medium">
+                                            {{ row.competitor.name }}
+                                        </div>
+                                        <div class="text-xs text-secondary">
+                                            {{ row.latest?.matchMethod ?? '—' }}
+                                        </div>
+                                    </td>
+                                    <td
+                                        [class.delta-alert]="isLargeDelta(row.listDelta)"
+                                    >
+                                        @if (row.latest?.listPrice !== null && row.latest?.listPrice !== undefined) {
+                                            <div class="price-stack">
+                                                <div class="price-main">
+                                                    {{ row.latest?.listPrice | number: '1.0-0' }}
+                                                </div>
+                                                @if (
+                                                row.listDelta.amount !== null &&
+                                                row.listDelta.percent !== null
+                                                ) {
+                                                    <div
+                                                        class="delta-stack"
+                                                        [class.delta-up]="row.listDelta.amount > 0"
+                                                        [class.delta-down]="row.listDelta.amount < 0"
+                                                        [class.delta-flat]="row.listDelta.amount === 0"
+                                                    >
+                                                        <div class="delta-cell">
+                                                            <span class="delta-indicator">
+                                                                @if (row.listDelta.amount > 0) { ▲ } @else if (row.listDelta.amount < 0) { ▼ } @else { ● }
+                                                            </span>
+                                                            <span class="delta-value">
+                                                                {{ row.listDelta.amount > 0 ? '+' : '' }}{{ row.listDelta.amount | number: '1.0-0' }}
+                                                            </span>
+                                                        </div>
+                                                        <div class="delta-sub">
+                                                            {{ row.listDelta.percent > 0 ? '+' : '' }}{{ row.listDelta.percent | number: '1.1-1' }}%
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        } @else {
+                                            —
+                                        }
+                                    </td>
+                                    <td
+                                        [class.delta-alert]="isLargeDelta(row.promoDelta)"
+                                    >
+                                        @if (row.latest?.promoPrice !== null && row.latest?.promoPrice !== undefined) {
+                                            <div class="price-stack">
+                                                <div class="price-main">
+                                                    {{ row.latest?.promoPrice | number: '1.0-0' }}
+                                                </div>
+                                                @if (
+                                                row.promoDelta.amount !== null &&
+                                                row.promoDelta.percent !== null
+                                                ) {
+                                                    <div
+                                                        class="delta-stack"
+                                                        [class.delta-up]="row.promoDelta.amount > 0"
+                                                        [class.delta-down]="row.promoDelta.amount < 0"
+                                                        [class.delta-flat]="row.promoDelta.amount === 0"
+                                                    >
+                                                        <div class="delta-cell">
+                                                            <span class="delta-indicator">
+                                                                @if (row.promoDelta.amount > 0) { ▲ } @else if (row.promoDelta.amount < 0) { ▼ } @else { ● }
+                                                            </span>
+                                                            <span class="delta-value">
+                                                                {{ row.promoDelta.amount > 0 ? '+' : '' }}{{ row.promoDelta.amount | number: '1.0-0' }}
+                                                            </span>
+                                                        </div>
+                                                        <div class="delta-sub">
+                                                            {{ row.promoDelta.percent > 0 ? '+' : '' }}{{ row.promoDelta.percent | number: '1.1-1' }}%
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        } @else {
+                                            —
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="text-xs text-secondary">
+                                            Metodo: {{ row.latest?.matchMethod ?? '—' }}
+                                        </div>
+                                        <div class="text-xs text-secondary">
+                                            Score:
+                                            @if (row.latest?.matchScore !== null && row.latest?.matchScore !== undefined) {
+                                                {{ row.latest?.matchScore | number: '1.2-2' }}
+                                            } @else {
+                                                —
+                                            }
+                                        </div>
+                                        <div class="text-xs text-secondary">
+                                            Ultimo match:
+                                            {{ row.latest?.lastMatchedAt ?? '—' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (row.latest?.url) {
+                                            <a
+                                                class="text-primary-700 underline"
+                                                [href]="row.latest?.url"
+                                                target="_blank"
+                                            >
+                                                Ver producto
+                                            </a>
+                                        } @else {
+                                            —
+                                        }
+                                        <div class="mt-3 flex flex-col gap-3">
+                                            <mat-form-field
+                                                class="w-full url-field"
+                                                appearance="outline"
+                                            >
+                                                <mat-label>URL manual</mat-label>
+                                                <input
+                                                    matInput
+                                                    [value]="getUrlDraft(row.competitor.id, row.latest?.url ?? null)"
+                                                    (input)="onUrlChange(row.competitor.id, $any($event.target).value)"
+                                                />
+                                            </mat-form-field>
+                                            <button
+                                                mat-stroked-button
+                                                type="button"
+                                                (click)="saveUrl(row.competitor.id)"
+                                                [disabled]="isSaving(row.competitor.id)"
+                                            >
+                                                Guardar URL
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <div class="bg-card mt-6 rounded-2xl p-6 shadow">
+            <div class="text-lg font-medium">Historico (ultimos 7 dias)</div>
+            <div class="text-secondary text-sm">
+                Precios diarios por competidor.
+            </div>
+
+            @if (historyView().length === 0) {
+                <div class="mt-4 text-secondary text-sm">
+                    No hay historial disponible.
+                </div>
+            } @else {
+                <div class="mt-4 overflow-auto rounded-xl border border-slate-200 bg-white">
+                    <table class="detail-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                @for (competitor of competitors(); track competitor.id) {
+                                    <th>{{ competitor.name }}</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (point of historyView(); track point.date) {
+                                <tr>
+                                    <td>{{ point.date }}</td>
+                                    @for (competitor of competitors(); track competitor.id) {
+                                        <td>
+                                            @if (point.pricesByCompetitor[competitor.id]) {
+                                                <div class="price-stack">
+                                                    <div class="price-main">
+                                                        @if (
+                                                        point.pricesByCompetitor[competitor.id].listPrice !== null &&
+                                                        point.pricesByCompetitor[competitor.id].listPrice !== undefined
+                                                        ) {
+                                                            {{ point.pricesByCompetitor[competitor.id].listPrice | number: '1.0-0' }}
+                                                        } @else {
+                                                            —
+                                                        }
+                                                    </div>
+                                                    <div class="text-xs text-secondary">
+                                                        @if (
+                                                        point.pricesByCompetitor[competitor.id].promoPrice !== null &&
+                                                        point.pricesByCompetitor[competitor.id].promoPrice !== undefined
+                                                        ) {
+                                                            {{ point.pricesByCompetitor[competitor.id].promoPrice | number: '1.0-0' }}
+                                                        } @else {
+                                                            —
+                                                        }
+                                                    </div>
+                                                </div>
+                                            } @else {
+                                                —
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>

@@ -1,3 +1,112 @@
 :host {
     display: block;
 }
+
+:host ::ng-deep .mat-mdc-row {
+    height: auto;
+}
+
+:host ::ng-deep .mat-mdc-cell {
+    align-items: flex-start;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+.description-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+}
+
+.stats {
+    .stat-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 16px;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+    }
+
+    .stat-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .stat-sub {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+}
+
+.hover-preview {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    margin-left: 16px;
+    width: 280px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 20;
+}
+
+.description-cell:hover .hover-preview {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hover-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+
+    img {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        object-fit: cover;
+        background: #f1f5f9;
+    }
+}
+
+.hover-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+
+.hover-sub {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.hover-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hover-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #475569;
+}

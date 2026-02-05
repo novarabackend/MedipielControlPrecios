@@ -156,12 +156,14 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         }
 
         var url = BuildProductUrl(baseUrl, item);
+        var name = ResolveProductName(item);
         var prices = ResolvePrices(item);
 
         await db.UpsertCompetitorProductAsync(
             product.Id,
             context.CompetitorId,
             url ?? product.Url!,
+            name,
             "url",
             1,
             DateTime.UtcNow,
@@ -230,10 +232,12 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                 }
 
                 var aiPrices = ResolvePrices(selection.Product);
+                var aiName = ResolveProductName(selection.Product);
                 await db.UpsertCompetitorProductAsync(
                     product.Id,
                     context.CompetitorId,
                     aiUrl,
+                    aiName,
                     "ai",
                     (decimal)selection.Confidence,
                     DateTime.UtcNow,
@@ -270,10 +274,12 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         }
 
         var prices = ResolvePrices(best.Product);
+        var bestName = ResolveProductName(best.Product);
         await db.UpsertCompetitorProductAsync(
             product.Id,
             context.CompetitorId,
             url,
+            bestName,
             "name",
             (decimal)best.Score,
             DateTime.UtcNow,
@@ -392,6 +398,16 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
         }
 
         return new PriceValues(list, promo);
+    }
+
+    private static string? ResolveProductName(VtexProduct product)
+    {
+        if (!string.IsNullOrWhiteSpace(product.ProductName))
+        {
+            return product.ProductName;
+        }
+
+        return product.Items?.FirstOrDefault()?.Name;
     }
 
     private static List<CandidateResult> RankCandidates(string description, List<VtexProduct> candidates)

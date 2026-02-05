@@ -17,6 +17,7 @@ import {
     PriceSnapshotsService,
     CompetitorInfo,
 } from 'app/core/price-snapshots/price-snapshots.service';
+import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
 
 interface CompetitorDelta {
     amount: number | null;
@@ -38,10 +39,12 @@ interface SnapshotRowView extends SnapshotRow {
 })
 export class SnapshotsComponent {
     private _service = inject(PriceSnapshotsService);
+    private _alertsService = inject(AlertsService);
 
     readonly loading = signal(false);
     readonly error = signal('');
     readonly data = signal<LatestSnapshotResponse | null>(null);
+    readonly alertRules = signal<AlertRule[]>([]);
 
     readonly competitors = computed<CompetitorInfo[]>(
         () => this.data()?.competitors ?? []
@@ -115,6 +118,7 @@ export class SnapshotsComponent {
 
     constructor() {
         this.load();
+        this.loadAlertRules();
     }
 
     load(): void {
@@ -130,14 +134,51 @@ export class SnapshotsComponent {
             });
     }
 
+    loadAlertRules(): void {
+        this._alertsService.getRules().subscribe({
+            next: (rules) => this.alertRules.set(rules),
+            error: () => this.alertRules.set([]),
+        });
+    }
+
     getCompetitorColor(index: number, competitor: CompetitorInfo): string {
         return competitor.color ?? this.colorPalette[index % this.colorPalette.length];
     }
 
-    isLargeDelta(delta: CompetitorDelta | undefined | null): boolean {
+    isLargeDelta(
+        delta: CompetitorDelta | undefined | null,
+        brandName: string | null,
+        type: 'list' | 'promo'
+    ): boolean {
         if (!delta || delta.percent === null || delta.percent === undefined) {
             return false;
         }
-        return Math.abs(delta.percent) >= 30;
+        const threshold = this.getThreshold(brandName, type);
+        if (threshold === null) {
+            return false;
+        }
+        return Math.abs(delta.percent) >= threshold;
+    }
+
+    private getThreshold(
+        brandName: string | null,
+        type: 'list' | 'promo'
+    ): number | null {
+        const defaultThreshold = 30;
+        if (!brandName) {
+            return defaultThreshold;
+        }
+
+        const rule = this.alertRules().find(
+            (item) => item.brandName.toLowerCase() === brandName.toLowerCase()
+        );
+
+        if (!rule || !rule.active) {
+            return defaultThreshold;
+        }
+
+        return type === 'list'
+            ? rule.listPriceThresholdPercent ?? defaultThreshold
+            : rule.promoPriceThresholdPercent ?? defaultThreshold;
     }
 }

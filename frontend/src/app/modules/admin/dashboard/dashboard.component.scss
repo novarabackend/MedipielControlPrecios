@@ -1,0 +1,163 @@
+:host {
+    display: block;
+}
+
+.filters {
+    .filter-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 14px 16px;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: #64748b;
+
+        strong {
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+    }
+}
+
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px;
+    background: #ffffff;
+}
+
+.kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .kpi-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .kpi-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .kpi-sub {
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #0f172a;
+}
+
+.competitors {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.competitor-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.competitor-name {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.competitor-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.competitor-sub {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.list-footer {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.chart {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.grid {
+    stroke: #e2e8f0;
+    stroke-width: 1;
+}
+
+.axis {
+    stroke: #cbd5f5;
+    stroke-width: 1;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    display: inline-block;
+}

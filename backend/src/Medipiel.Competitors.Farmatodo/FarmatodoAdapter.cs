@@ -103,6 +103,7 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
                 product.Id,
                 context.CompetitorId,
                 url,
+                item.Description,
                 "ean",
                 1,
                 DateTime.UtcNow,

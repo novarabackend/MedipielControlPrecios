@@ -67,6 +67,7 @@ WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
         int productId,
         int competitorId,
         string? url,
+        string? name,
         string? matchMethod,
         decimal? matchScore,
         DateTime? lastMatchedAt,
@@ -77,6 +78,7 @@ IF EXISTS (SELECT 1 FROM CompetitorProducts WHERE ProductId = @ProductId AND Com
 BEGIN
     UPDATE CompetitorProducts
     SET Url = @Url,
+        Name = COALESCE(@Name, Name),
         MatchMethod = @MatchMethod,
         MatchScore = @MatchScore,
         LastMatchedAt = COALESCE(@LastMatchedAt, SYSUTCDATETIME())
@@ -84,8 +86,8 @@ BEGIN
 END
 ELSE
 BEGIN
-    INSERT INTO CompetitorProducts (ProductId, CompetitorId, Url, MatchMethod, MatchScore, LastMatchedAt)
-    VALUES (@ProductId, @CompetitorId, @Url, @MatchMethod, @MatchScore, COALESCE(@LastMatchedAt, SYSUTCDATETIME()));
+    INSERT INTO CompetitorProducts (ProductId, CompetitorId, Url, Name, MatchMethod, MatchScore, LastMatchedAt)
+    VALUES (@ProductId, @CompetitorId, @Url, @Name, @MatchMethod, @MatchScore, COALESCE(@LastMatchedAt, SYSUTCDATETIME()));
 END
 ";
 
@@ -95,6 +97,7 @@ END
         command.Parameters.AddWithValue("@ProductId", productId);
         command.Parameters.AddWithValue("@CompetitorId", competitorId);
         command.Parameters.AddWithValue("@Url", (object?)url ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Name", (object?)name ?? DBNull.Value);
         command.Parameters.AddWithValue("@MatchMethod", (object?)matchMethod ?? DBNull.Value);
         command.Parameters.AddWithValue("@MatchScore", (object?)matchScore ?? DBNull.Value);
         command.Parameters.AddWithValue("@LastMatchedAt", (object?)lastMatchedAt ?? DBNull.Value);
@@ -107,6 +110,7 @@ END
         return UpsertCompetitorProductAsync(
             productId,
             competitorId,
+            null,
             null,
             "no_match",
             null,

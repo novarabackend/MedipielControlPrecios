@@ -27,6 +27,25 @@ public class AlertsController : ControllerBase
         return Ok(items);
     }
 
+    [HttpGet("rules")]
+    public async Task<IActionResult> GetRules()
+    {
+        var items = await _db.AlertRules.AsNoTracking()
+            .Include(x => x.Brand)
+            .OrderBy(x => x.Brand.Name)
+            .Select(x => new AlertRuleDto(
+                x.Id,
+                x.BrandId,
+                x.Brand.Name,
+                x.ListPriceThresholdPercent,
+                x.PromoPriceThresholdPercent,
+                x.Active
+            ))
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
     [HttpPost("rules")]
     public async Task<IActionResult> CreateRule([FromBody] AlertRule input)
     {
@@ -47,4 +66,59 @@ public class AlertsController : ControllerBase
         await _db.SaveChangesAsync();
         return Created($"api/alerts/rules/{rule.Id}", rule);
     }
+
+    [HttpPut("rules/{brandId:int}")]
+    public async Task<IActionResult> UpsertRule(int brandId, [FromBody] AlertRuleUpsert input)
+    {
+        if (brandId <= 0)
+        {
+            return BadRequest("BrandId is required.");
+        }
+
+        var brand = await _db.Brands.FirstOrDefaultAsync(x => x.Id == brandId);
+        if (brand is null)
+        {
+            return BadRequest("Brand not found.");
+        }
+
+        var rule = await _db.AlertRules.FirstOrDefaultAsync(x => x.BrandId == brandId);
+        if (rule is null)
+        {
+            rule = new AlertRule
+            {
+                BrandId = brandId
+            };
+            _db.AlertRules.Add(rule);
+        }
+
+        rule.ListPriceThresholdPercent = input.ListPriceThresholdPercent;
+        rule.PromoPriceThresholdPercent = input.PromoPriceThresholdPercent;
+        rule.Active = input.Active;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new AlertRuleDto(
+            rule.Id,
+            rule.BrandId,
+            brand.Name,
+            rule.ListPriceThresholdPercent,
+            rule.PromoPriceThresholdPercent,
+            rule.Active
+        ));
+    }
 }
+
+public record AlertRuleDto(
+    int Id,
+    int BrandId,
+    string BrandName,
+    decimal? ListPriceThresholdPercent,
+    decimal? PromoPriceThresholdPercent,
+    bool Active
+);
+
+public record AlertRuleUpsert(
+    decimal? ListPriceThresholdPercent,
+    decimal? PromoPriceThresholdPercent,
+    bool Active
+);

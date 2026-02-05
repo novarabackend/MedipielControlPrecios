@@ -49,6 +49,13 @@ const schedulerGroup: FuseNavigationItem = {
             icon: 'heroicons_outline:clock',
             link: '/settings/scheduler',
         },
+        {
+            id: 'scheduler.alerts',
+            title: 'Alertas',
+            type: 'basic',
+            icon: 'heroicons_outline:bell-alert',
+            link: '/settings/alerts',
+        },
     ],
 };
 
@@ -76,6 +83,20 @@ const resultsGroup: FuseNavigationItem = {
 
 export const defaultNavigation: FuseNavigationItem[] = [
     {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        children: [
+            {
+                id: 'dashboard.home',
+                title: 'Dashboard diario',
+                type: 'basic',
+                icon: 'heroicons_outline:chart-bar',
+                link: '/dashboard',
+            },
+        ],
+    },
+    {
         id: 'catalog',
         title: 'Catalogo',
         type: 'group',
@@ -94,6 +115,20 @@ export const defaultNavigation: FuseNavigationItem[] = [
     resultsGroup,
 ];
 export const compactNavigation: FuseNavigationItem[] = [
+    {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        children: [
+            {
+                id: 'dashboard.home',
+                title: 'Dashboard diario',
+                type: 'basic',
+                icon: 'heroicons_outline:chart-bar',
+                link: '/dashboard',
+            },
+        ],
+    },
     {
         id: 'catalog',
         title: 'Catalogo',
@@ -114,6 +149,20 @@ export const compactNavigation: FuseNavigationItem[] = [
 ];
 export const futuristicNavigation: FuseNavigationItem[] = [
     {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        children: [
+            {
+                id: 'dashboard.home',
+                title: 'Dashboard diario',
+                type: 'basic',
+                icon: 'heroicons_outline:chart-bar',
+                link: '/dashboard',
+            },
+        ],
+    },
+    {
         id: 'catalog',
         title: 'Catalogo',
         type: 'group',
@@ -132,6 +181,20 @@ export const futuristicNavigation: FuseNavigationItem[] = [
     resultsGroup,
 ];
 export const horizontalNavigation: FuseNavigationItem[] = [
+    {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        children: [
+            {
+                id: 'dashboard.home',
+                title: 'Dashboard diario',
+                type: 'basic',
+                icon: 'heroicons_outline:chart-bar',
+                link: '/dashboard',
+            },
+        ],
+    },
     {
         id: 'catalog',
         title: 'Catalogo',

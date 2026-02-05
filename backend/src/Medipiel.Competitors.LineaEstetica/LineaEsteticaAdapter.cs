@@ -131,6 +131,7 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
                     product.Id,
                     context.CompetitorId,
                     url,
+                    item.Name,
                     "ean",
                     1,
                     DateTime.UtcNow,
@@ -218,6 +219,7 @@ public sealed class LineaEsteticaAdapter : CompetitorAdapterBase
 
     private sealed record StoreProduct(
         string? Permalink,
+        string? Name,
         StorePrice? Prices,
         List<StoreAttribute>? Attributes
     );

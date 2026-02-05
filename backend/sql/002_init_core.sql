@@ -55,6 +55,7 @@ BEGIN
     ProductId INT NOT NULL,
     CompetitorId INT NOT NULL,
     Url NVARCHAR(1000) NULL,
+    Name NVARCHAR(500) NULL,
     MatchMethod NVARCHAR(50) NULL,
     MatchScore DECIMAL(5,3) NULL,
     LastMatchedAt DATETIME2 NULL,
