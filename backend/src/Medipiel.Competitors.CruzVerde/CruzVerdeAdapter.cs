@@ -187,8 +187,8 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
             context.CompetitorId,
             url,
             item.Name,
-            "url",
-            1,
+            null,
+            null,
             DateTime.UtcNow,
             ct
         );

@@ -164,8 +164,8 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
             context.CompetitorId,
             url ?? product.Url!,
             name,
-            "url",
-            1,
+            null,
+            null,
             DateTime.UtcNow,
             ct
         );

@@ -7,6 +7,8 @@ export interface ReportFilters {
     to?: string;
     brandId?: number | null;
     categoryId?: number | null;
+    productIds?: number[] | null;
+    format?: 'wide' | 'long';
 }
 
 const API_BASE = 'http://localhost:5000/api';
@@ -28,6 +30,12 @@ export class ReportsService {
         }
         if (filters.categoryId) {
             params = params.set('categoryId', String(filters.categoryId));
+        }
+        if (filters.productIds && filters.productIds.length > 0) {
+            params = params.set('productIds', filters.productIds.join(','));
+        }
+        if (filters.format) {
+            params = params.set('layout', filters.format);
         }
 
         return this._http.get(`${API_BASE}/reports/excel`, {

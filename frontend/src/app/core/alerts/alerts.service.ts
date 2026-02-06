@@ -17,6 +17,21 @@ export interface AlertRuleUpsert {
     active: boolean;
 }
 
+export interface AlertItem {
+    id: number;
+    type: string;
+    message: string;
+    status: string;
+    createdAt: string;
+    productId: number;
+    productSku: string | null;
+    productEan: string | null;
+    productDescription: string;
+    brandName: string | null;
+    competitorId: number;
+    competitorName: string;
+}
+
 const API_BASE = 'http://localhost:5000/api';
 
 @Injectable({ providedIn: 'root' })
@@ -32,5 +47,9 @@ export class AlertsService {
             `${API_BASE}/alerts/rules/${brandId}`,
             payload
         );
+    }
+
+    getAlerts(): Observable<AlertItem[]> {
+        return this._http.get<AlertItem[]>(`${API_BASE}/alerts`);
     }
 }

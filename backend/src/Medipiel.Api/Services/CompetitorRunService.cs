@@ -238,6 +238,30 @@ public sealed class CompetitorRunService
             }
         }
 
+        var missingMatches = await _db.CompetitorProducts.AsNoTracking()
+            .Where(x => x.CompetitorId == competitorId && x.MatchMethod == "no_match")
+            .Select(x => x.ProductId)
+            .ToListAsync(ct);
+
+        foreach (var productId in missingMatches)
+        {
+            var key = $"{productId}:no_match";
+            if (existingSet.Contains(key))
+            {
+                continue;
+            }
+
+            existingSet.Add(key);
+            newAlerts.Add(new Alert
+            {
+                ProductId = productId,
+                CompetitorId = competitorId,
+                AlertRuleId = null,
+                Type = "no_match",
+                Message = "Producto sin match en el competidor."
+            });
+        }
+
         if (newAlerts.Count == 0)
         {
             return 0;

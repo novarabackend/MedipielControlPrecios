@@ -193,6 +193,7 @@ export class SnapshotsHistoryComponent {
                 to,
                 brandId: this.reportBrandId(),
                 categoryId: this.reportCategoryId(),
+                format: 'long',
             })
             .pipe(finalize(() => this.exporting.set(false)))
             .subscribe({

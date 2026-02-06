@@ -19,11 +19,28 @@ public class AlertsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var items = await _db.Alerts.AsNoTracking()
-            .Include(x => x.Product)
-            .Include(x => x.Competitor)
-            .OrderByDescending(x => x.CreatedAt)
-            .ToListAsync();
+        var items = await (
+            from alert in _db.Alerts.AsNoTracking()
+            join product in _db.Products.AsNoTracking() on alert.ProductId equals product.Id
+            join brand in _db.Brands.AsNoTracking() on product.BrandId equals brand.Id into brandJoin
+            from brand in brandJoin.DefaultIfEmpty()
+            join competitor in _db.Competitors.AsNoTracking() on alert.CompetitorId equals competitor.Id
+            orderby alert.CreatedAt descending
+            select new AlertItemDto(
+                alert.Id,
+                alert.Type,
+                alert.Message,
+                alert.Status,
+                alert.CreatedAt,
+                product.Id,
+                product.Sku,
+                product.Ean,
+                product.Description,
+                brand != null ? brand.Name : null,
+                competitor.Id,
+                competitor.Name
+            )
+        ).ToListAsync();
         return Ok(items);
     }
 
@@ -121,4 +138,19 @@ public record AlertRuleUpsert(
     decimal? ListPriceThresholdPercent,
     decimal? PromoPriceThresholdPercent,
     bool Active
+);
+
+public record AlertItemDto(
+    int Id,
+    string Type,
+    string Message,
+    string Status,
+    DateTime CreatedAt,
+    int ProductId,
+    string? ProductSku,
+    string? ProductEan,
+    string ProductDescription,
+    string? BrandName,
+    int CompetitorId,
+    string CompetitorName
 );

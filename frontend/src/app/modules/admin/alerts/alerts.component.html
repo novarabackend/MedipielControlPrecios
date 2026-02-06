@@ -1,0 +1,113 @@
+<div class="flex min-w-0 flex-auto flex-col">
+    <div class="border-b bg-card px-6 py-5 sm:px-10">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <div class="text-2xl font-semibold">Alertas</div>
+                <div class="text-sm text-secondary">
+                    Brechas de precio y productos sin match.
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button mat-stroked-button type="button" (click)="load()" [disabled]="loading()">
+                    Actualizar
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-4 grid gap-3 lg:grid-cols-4">
+            <mat-form-field class="w-full">
+                <mat-label>Tipo</mat-label>
+                <mat-select
+                    [value]="filterType()"
+                    (selectionChange)="filterType.set($event.value)"
+                >
+                    <mat-option value="all">Todos</mat-option>
+                    <mat-option value="list">Brecha lista</mat-option>
+                    <mat-option value="promo">Brecha promo</mat-option>
+                    <mat-option value="no_match">Sin match</mat-option>
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>Competidor</mat-label>
+                <mat-select
+                    [value]="filterCompetitor()"
+                    (selectionChange)="filterCompetitor.set($event.value)"
+                >
+                    <mat-option value="all">Todos</mat-option>
+                    @for (item of competitors(); track item.id) {
+                        <mat-option [value]="item.id">{{ item.name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field class="w-full lg:col-span-2">
+                <mat-label>Buscar producto</mat-label>
+                <input
+                    matInput
+                    [value]="filterSearch()"
+                    (input)="filterSearch.set($any($event.target).value)"
+                    placeholder="SKU, EAN o descripcion"
+                />
+            </mat-form-field>
+        </div>
+    </div>
+
+    <div class="flex-auto space-y-4 p-6 sm:p-10">
+        @if (error().length > 0) {
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {{ error() }}
+            </div>
+        }
+
+        <div class="rounded-2xl border bg-card shadow-sm">
+            @if (loading()) {
+                <div class="px-6 py-4 text-sm text-secondary">Cargando...</div>
+            }
+
+            @if (!loading() && filteredItems().length === 0) {
+                <div class="px-6 py-6 text-sm text-secondary">
+                    No hay alertas para los filtros seleccionados.
+                </div>
+            }
+
+            @if (!loading() && filteredItems().length > 0) {
+                <div class="overflow-auto">
+                    <table class="alerts-table w-full text-left text-sm">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Competidor</th>
+                                <th>Producto</th>
+                                <th>Tipo</th>
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (alert of filteredItems(); track alert.id) {
+                                <tr>
+                                    <td>{{ alert.createdAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+                                    <td>{{ alert.competitorName }}</td>
+                                    <td>
+                                        <div class="font-medium">
+                                            {{ alert.productDescription }}
+                                        </div>
+                                        <div class="text-xs text-secondary">
+                                            SKU: {{ alert.productSku ?? '—' }} ·
+                                            EAN: {{ alert.productEan ?? '—' }} ·
+                                            Marca: {{ alert.brandName ?? '—' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="type-pill" [class.no-match]="alert.type === 'no_match'">
+                                            {{ alert.type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ alert.message }}</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -206,6 +206,28 @@ export class ProductDetailComponent {
         return this.savingIds().has(competitorId);
     }
 
+    formatMatchMethod(method: string | null | undefined): string {
+        if (!method) {
+            return '—';
+        }
+
+        const normalized = method.trim().toLowerCase();
+        switch (normalized) {
+            case 'ean':
+                return 'EAN';
+            case 'name':
+                return 'Nombre';
+            case 'ai':
+                return 'IA';
+            case 'manual':
+                return 'Manual';
+            case 'no_match':
+                return 'Sin match';
+            default:
+                return '—';
+        }
+    }
+
     isLargeDelta(delta: CompetitorDelta): boolean {
         if (delta.percent === null || delta.percent === undefined) {
             return false;

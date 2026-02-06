@@ -78,6 +78,13 @@ const resultsGroup: FuseNavigationItem = {
             icon: 'heroicons_outline:calendar-days',
             link: '/results/history',
         },
+        {
+            id: 'results.alerts',
+            title: 'Alertas',
+            type: 'basic',
+            icon: 'heroicons_outline:bell-alert',
+            link: '/results/alerts',
+        },
     ],
 };
 

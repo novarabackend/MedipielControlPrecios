@@ -1,0 +1,41 @@
+:host {
+    display: block;
+}
+
+.alerts-table {
+    border-collapse: collapse;
+    width: 100%;
+
+    th,
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+    }
+
+    th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+    }
+}
+
+.type-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.type-pill.no-match {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+    border-color: rgba(239, 68, 68, 0.25);
+}

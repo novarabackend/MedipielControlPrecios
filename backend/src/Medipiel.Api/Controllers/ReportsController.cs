@@ -21,7 +21,10 @@ public class ReportsController : ControllerBase
         [FromQuery] DateOnly? from,
         [FromQuery] DateOnly? to,
         [FromQuery] int? brandId,
-        [FromQuery] int? categoryId)
+        [FromQuery] int? categoryId,
+        [FromQuery] string? productIds,
+        [FromQuery] string? format,
+        [FromQuery] string? layout)
     {
         var latestDate = await _db.PriceSnapshots
             .AsNoTracking()
@@ -64,6 +67,13 @@ public class ReportsController : ControllerBase
                 Line = l
             };
 
+        var productIdList = ParseIds(productIds);
+
+        if (productIdList.Count > 0)
+        {
+            productsQuery = productsQuery.Where(x => productIdList.Contains(x.Product.Id));
+        }
+
         if (brandId.HasValue)
         {
             productsQuery = productsQuery.Where(x => x.Product.BrandId == brandId.Value);
@@ -92,19 +102,19 @@ public class ReportsController : ControllerBase
             ))
             .ToListAsync();
 
-        var productIds = products.Select(x => x.Id).ToList();
+        var productIdsAll = products.Select(x => x.Id).ToList();
         var competitorIds = competitors.Select(x => x.Id).ToList();
 
         var snapshots = await _db.PriceSnapshots.AsNoTracking()
             .Where(x =>
-                productIds.Contains(x.ProductId) &&
+                productIdsAll.Contains(x.ProductId) &&
                 competitorIds.Contains(x.CompetitorId) &&
                 x.SnapshotDate >= fromDate &&
                 x.SnapshotDate <= toDate)
             .ToListAsync();
 
         var competitorProducts = await _db.CompetitorProducts.AsNoTracking()
-            .Where(x => productIds.Contains(x.ProductId) && competitorIds.Contains(x.CompetitorId))
+            .Where(x => productIdsAll.Contains(x.ProductId) && competitorIds.Contains(x.CompetitorId))
             .ToListAsync();
 
         var snapshotMap = snapshots.ToDictionary(
@@ -121,6 +131,20 @@ public class ReportsController : ControllerBase
         for (var d = fromDate; d <= toDate; d = d.AddDays(1))
         {
             dates.Add(d);
+        }
+
+        var resolvedFormat = layout ?? format;
+        var useLongFormat = string.Equals(resolvedFormat, "long", StringComparison.OrdinalIgnoreCase);
+        if (useLongFormat)
+        {
+            return BuildLongReport(
+                products,
+                competitors,
+                dates,
+                snapshotMap,
+                competitorProductMap,
+                fromDate,
+                toDate);
         }
 
         using var workbook = new XLWorkbook();
@@ -286,6 +310,183 @@ public class ReportsController : ControllerBase
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             fileName
         );
+    }
+
+    private IActionResult BuildLongReport(
+        List<ReportProductRow> products,
+        List<Models.Competitor> competitors,
+        List<DateOnly> dates,
+        Dictionary<(DateOnly, int, int), Models.PriceSnapshot> snapshotMap,
+        Dictionary<(int, int), Models.CompetitorProduct> competitorProductMap,
+        DateOnly fromDate,
+        DateOnly toDate)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Reporte");
+
+        var baseHeaders = new[]
+        {
+            "SKU",
+            "EAN",
+            "Descripcion",
+            "Marca",
+            "Proveedor",
+            "Categoria",
+            "Linea",
+            "Precio Descuento",
+            "Precio Normal"
+        };
+
+        var competitorHeaders = new[]
+        {
+            "Lista",
+            "Promo",
+            "Diff Lista $",
+            "Diff Lista %",
+            "Diff Promo $",
+            "Diff Promo %",
+            "Match Metodo",
+            "Match Score",
+            "Nombre",
+            "URL"
+        };
+
+        var headers = new List<string> { "Fecha" };
+        headers.AddRange(baseHeaders);
+
+        foreach (var competitor in competitors)
+        {
+            foreach (var suffix in competitorHeaders)
+            {
+                headers.Add($"{competitor.Name} {suffix}");
+            }
+        }
+
+        for (var i = 0; i < headers.Count; i++)
+        {
+            sheet.Cell(1, i + 1).Value = headers[i];
+        }
+
+        var rowIndex = 2;
+        foreach (var product in products)
+        {
+            foreach (var date in dates)
+            {
+                sheet.Cell(rowIndex, 1).Value = date.ToString("dd/MM/yy");
+                sheet.Cell(rowIndex, 2).Value = product.Sku ?? string.Empty;
+                sheet.Cell(rowIndex, 3).Value = product.Ean ?? string.Empty;
+                sheet.Cell(rowIndex, 4).Value = product.Description;
+                sheet.Cell(rowIndex, 5).Value = product.BrandName ?? string.Empty;
+                sheet.Cell(rowIndex, 6).Value = product.SupplierName ?? string.Empty;
+                sheet.Cell(rowIndex, 7).Value = product.CategoryName ?? string.Empty;
+                sheet.Cell(rowIndex, 8).Value = product.LineName ?? string.Empty;
+                sheet.Cell(rowIndex, 9).Value = product.MedipielPromoPrice;
+                sheet.Cell(rowIndex, 10).Value = product.MedipielListPrice;
+
+                var currentCol = baseHeaders.Length + 2;
+                foreach (var competitor in competitors)
+                {
+                    snapshotMap.TryGetValue((date, product.Id, competitor.Id), out var snapshot);
+                    competitorProductMap.TryGetValue((product.Id, competitor.Id), out var cp);
+
+                    var listPrice = snapshot?.ListPrice;
+                    var promoPrice = snapshot?.PromoPrice;
+                    var diffList = ComputeDiff(listPrice, product.MedipielListPrice);
+                    var diffListPercent = ComputeDiffPercent(listPrice, product.MedipielListPrice);
+                    var diffPromo = ComputeDiff(promoPrice, product.MedipielPromoPrice);
+                    var diffPromoPercent = ComputeDiffPercent(promoPrice, product.MedipielPromoPrice);
+
+                    sheet.Cell(rowIndex, currentCol + 0).Value = listPrice;
+                    sheet.Cell(rowIndex, currentCol + 1).Value = promoPrice;
+                    sheet.Cell(rowIndex, currentCol + 2).Value = diffList;
+                    sheet.Cell(rowIndex, currentCol + 3).Value = diffListPercent;
+                    sheet.Cell(rowIndex, currentCol + 4).Value = diffPromo;
+                    sheet.Cell(rowIndex, currentCol + 5).Value = diffPromoPercent;
+                    sheet.Cell(rowIndex, currentCol + 6).Value = cp?.MatchMethod ?? string.Empty;
+                    sheet.Cell(rowIndex, currentCol + 7).Value = cp?.MatchScore;
+                    sheet.Cell(rowIndex, currentCol + 8).Value = cp?.Name ?? string.Empty;
+                    sheet.Cell(rowIndex, currentCol + 9).Value = cp?.Url ?? string.Empty;
+
+                    currentCol += competitorHeaders.Length;
+                }
+
+                rowIndex += 1;
+            }
+        }
+
+        var headerRange = sheet.Range(1, 1, 1, headers.Count);
+        headerRange.Style.Font.SetBold();
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f2f4f8");
+
+        var moneyColumns = new List<int>();
+        var percentColumns = new List<int>();
+
+        for (var i = 0; i < baseHeaders.Length; i++)
+        {
+            var header = baseHeaders[i];
+            if (header.StartsWith("Precio", StringComparison.OrdinalIgnoreCase))
+            {
+                moneyColumns.Add(i + 2);
+            }
+        }
+
+        var competitorStart = baseHeaders.Length + 2;
+        for (var competitorIndex = 0; competitorIndex < competitors.Count; competitorIndex++)
+        {
+            var blockStart = competitorStart + (competitorIndex * competitorHeaders.Length);
+            moneyColumns.Add(blockStart + 0);
+            moneyColumns.Add(blockStart + 1);
+            moneyColumns.Add(blockStart + 2);
+            moneyColumns.Add(blockStart + 4);
+            percentColumns.Add(blockStart + 3);
+            percentColumns.Add(blockStart + 5);
+        }
+
+        foreach (var col in moneyColumns.Distinct())
+        {
+            sheet.Column(col).Style.NumberFormat.Format = "#,##0";
+        }
+
+        foreach (var col in percentColumns.Distinct())
+        {
+            sheet.Column(col).Style.NumberFormat.Format = "0.0%";
+        }
+
+        sheet.SheetView.FreezeRows(1);
+        sheet.SheetView.FreezeColumns(baseHeaders.Length + 1);
+        sheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var content = stream.ToArray();
+
+        var fileName = $"reporte_precios_{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.xlsx";
+        return File(
+            content,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName
+        );
+    }
+
+    private static List<int> ParseIds(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new List<int>();
+        }
+
+        var list = new List<int>();
+        foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(part.Trim(), out var id))
+            {
+                list.Add(id);
+            }
+        }
+
+        return list;
     }
 
     private static decimal? ComputeDiff(decimal? value, decimal? baseValue)

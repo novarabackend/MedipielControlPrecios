@@ -12,6 +12,7 @@ import { forkJoin, of } from 'rxjs';
 import * as XLSX from 'xlsx';
 import { MasterItem, MastersService } from 'app/core/masters/masters.service';
 import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
+import { ReportsService } from 'app/core/reports/reports.service';
 import {
     CompetitorInfo as SnapshotCompetitor,
     LatestSnapshotResponse,
@@ -66,6 +67,7 @@ export class ProductsComponent {
     private _mastersService = inject(MastersService);
     private _snapshotsService = inject(PriceSnapshotsService);
     private _alertsService = inject(AlertsService);
+    private _reportsService = inject(ReportsService);
 
     readonly items = signal<ProductItem[]>([]);
     readonly loading = signal(false);
@@ -73,6 +75,10 @@ export class ProductsComponent {
     readonly snapshotData = signal<LatestSnapshotResponse | null>(null);
     readonly snapshotLoading = signal(false);
     readonly alertRules = signal<AlertRule[]>([]);
+    readonly exportFrom = signal('');
+    readonly exportTo = signal('');
+    readonly exporting = signal(false);
+    readonly exportError = signal('');
 
     readonly importing = signal(false);
     readonly importFile = signal<File | null>(null);
@@ -324,60 +330,48 @@ export class ProductsComponent {
     }
 
     exportExcel(): void {
-        const rows = this.filteredItems();
-        const competitorId = this.filterCompetitor();
-        const competitorLabel = this.getCompetitorLabel();
-
-        const header = [
-            'SKU',
-            'EAN',
-            'Descripcion',
-            'Marca',
-            'Proveedor',
-            'Categoria',
-            'Linea',
-            'Medipiel Lista',
-            'Medipiel Promo',
-        ];
-
-        const competitorList = competitorId
-            ? this.competitors().filter((item) => item.id === competitorId)
-            : this.competitors();
-
-        for (const comp of competitorList) {
-            header.push(`${comp.name} Lista`);
-            header.push(`${comp.name} Promo`);
+        const from = this.exportFrom() || this.snapshotDate();
+        const to = this.exportTo() || from;
+        if (!from || from === '—') {
+            this.exportError.set('Selecciona una fecha valida para exportar.');
+            return;
         }
 
-        const data = rows.map((row) => {
-            const base: Array<string | number | null> = [
-                row.sku,
-                row.ean ?? '',
-                row.description,
-                row.brandName ?? '',
-                row.supplierName ?? '',
-                row.categoryName ?? '',
-                row.lineName ?? '',
-                row.medipielListPrice ?? null,
-                row.medipielPromoPrice ?? null,
-            ];
+        const ids = this.filteredItems().map((item) => item.id);
+        if (ids.length === 0) {
+            this.exportError.set('No hay productos para exportar.');
+            return;
+        }
 
-            for (const comp of competitorList) {
-                const price = row.pricesByCompetitor[comp.id];
-                base.push(price?.listPrice ?? null);
-                base.push(price?.promoPrice ?? null);
-            }
+        this.exporting.set(true);
+        this.exportError.set('');
 
-            return base;
-        });
-
-        const worksheet = XLSX.utils.aoa_to_sheet([header, ...data]);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
-
-        const dateLabel = this.snapshotDate() !== '—' ? this.snapshotDate() : 'sin-fecha';
-        const name = competitorId ? `productos-${competitorLabel}` : 'productos';
-        XLSX.writeFile(workbook, `${name}-${dateLabel}.xlsx`);
+        this._reportsService
+            .downloadExcel({
+                from,
+                to,
+                brandId: this.filterBrand()
+                    ? Number(this.filterBrand())
+                    : null,
+                categoryId: this.filterCategory()
+                    ? Number(this.filterCategory())
+                    : null,
+                productIds: ids,
+            })
+            .pipe(finalize(() => this.exporting.set(false)))
+            .subscribe({
+                next: (blob) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `productos_${from}_${to}.xlsx`;
+                    link.click();
+                    window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+                },
+                error: () => {
+                    this.exportError.set('No se pudo exportar el Excel.');
+                },
+            });
     }
 
     hasMatch(item: ProductRowView, competitorId: number | null): boolean {

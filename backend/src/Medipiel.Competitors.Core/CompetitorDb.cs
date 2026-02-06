@@ -79,8 +79,8 @@ BEGIN
     UPDATE CompetitorProducts
     SET Url = @Url,
         Name = COALESCE(@Name, Name),
-        MatchMethod = @MatchMethod,
-        MatchScore = @MatchScore,
+        MatchMethod = COALESCE(@MatchMethod, MatchMethod),
+        MatchScore = COALESCE(@MatchScore, MatchScore),
         LastMatchedAt = COALESCE(@LastMatchedAt, SYSUTCDATETIME())
     WHERE ProductId = @ProductId AND CompetitorId = @CompetitorId;
 END
