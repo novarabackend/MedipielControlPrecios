@@ -596,7 +596,13 @@ export class ProductsComponent {
             'codigo de barras',
             'codigo barra principal',
         ]);
-        const descriptionIndex = indexOf(['descripcion', 'descripción']);
+        const descriptionIndex = indexOf([
+            'descripcion',
+            'descripción',
+            'descripcion mdp',
+            'descripción mdp',
+            'descripcion medipiel',
+        ]);
         const brandIndex = indexOf(['marca', 'marcas']);
         const supplierIndex = indexOf(['proveedor']);
         const categoryIndex = indexOf(['categoria', 'categoría']);

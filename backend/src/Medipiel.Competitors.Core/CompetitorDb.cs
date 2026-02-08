@@ -29,14 +29,21 @@ SELECT TOP (@BatchSize)
        p.Id,
        p.Ean,
        p.Description,
-       cp.Url
+       cp.Url,
+       b.Name AS BrandName
 FROM Products p
+LEFT JOIN Brands b
+    ON b.Id = p.BrandId
 LEFT JOIN CompetitorProducts cp
     ON cp.ProductId = p.Id AND cp.CompetitorId = @CompetitorId
 LEFT JOIN PriceSnapshots ps
     ON ps.ProductId = p.Id AND ps.CompetitorId = @CompetitorId AND ps.SnapshotDate = @SnapshotDate
 WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
-  AND NOT (cp.MatchMethod = 'no_match' AND cp.Url IS NULL)
+  AND (
+        @OnlyNew = 0
+        OR cp.ProductId IS NULL
+        OR NOT (cp.MatchMethod = 'no_match' AND cp.Url IS NULL)
+      )
   AND (@OnlyNew = 0 OR ps.Id IS NULL);
 ";
 
@@ -56,7 +63,8 @@ WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
                 reader.GetInt32(0),
                 reader.IsDBNull(1) ? null : reader.GetString(1),
                 reader.GetString(2),
-                reader.IsDBNull(3) ? null : reader.GetString(3)
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4)
             ));
         }
 
@@ -104,6 +112,145 @@ END
         await command.ExecuteNonQueryAsync(ct);
         return true;
     }
+
+    public async Task<bool> UpsertCompetitorCatalogAsync(
+        int competitorId,
+        string url,
+        string? name,
+        string? description,
+        string? ean,
+        string? competitorSku,
+        string? brand,
+        string? categories,
+        decimal? listPrice,
+        decimal? promoPrice,
+        DateTime? extractedAt,
+        CancellationToken ct)
+    {
+        const string sql = @"
+IF EXISTS (SELECT 1 FROM CompetitorCatalog WHERE CompetitorId = @CompetitorId AND Url = @Url)
+BEGIN
+    UPDATE CompetitorCatalog
+    SET Name = @Name,
+        Description = @Description,
+        Ean = @Ean,
+        CompetitorSku = @CompetitorSku,
+        Brand = @Brand,
+        Categories = @Categories,
+        ListPrice = @ListPrice,
+        PromoPrice = @PromoPrice,
+        ExtractedAt = COALESCE(@ExtractedAt, SYSUTCDATETIME()),
+        UpdatedAt = SYSUTCDATETIME()
+    WHERE CompetitorId = @CompetitorId AND Url = @Url;
+END
+ELSE
+BEGIN
+    INSERT INTO CompetitorCatalog (
+        CompetitorId,
+        Url,
+        Name,
+        Description,
+        Ean,
+        CompetitorSku,
+        Brand,
+        Categories,
+        ListPrice,
+        PromoPrice,
+        ExtractedAt,
+        UpdatedAt
+    )
+    VALUES (
+        @CompetitorId,
+        @Url,
+        @Name,
+        @Description,
+        @Ean,
+        @CompetitorSku,
+        @Brand,
+        @Categories,
+        @ListPrice,
+        @PromoPrice,
+        COALESCE(@ExtractedAt, SYSUTCDATETIME()),
+        SYSUTCDATETIME()
+    );
+END
+";
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@CompetitorId", competitorId);
+        command.Parameters.AddWithValue("@Url", url);
+        command.Parameters.AddWithValue("@Name", (object?)name ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Description", (object?)description ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Ean", (object?)ean ?? DBNull.Value);
+        command.Parameters.AddWithValue("@CompetitorSku", (object?)competitorSku ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Brand", (object?)brand ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Categories", (object?)categories ?? DBNull.Value);
+        command.Parameters.AddWithValue("@ListPrice", (object?)listPrice ?? DBNull.Value);
+        command.Parameters.AddWithValue("@PromoPrice", (object?)promoPrice ?? DBNull.Value);
+        command.Parameters.AddWithValue("@ExtractedAt", (object?)extractedAt ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
+    public async Task<List<CompetitorCatalogRow>> LoadCompetitorCatalogAsync(
+        int competitorId,
+        CancellationToken ct)
+    {
+        const string sql = @"
+SELECT Url,
+       Name,
+       Description,
+       Ean,
+       CompetitorSku,
+       Brand,
+       Categories,
+       ListPrice,
+       PromoPrice,
+       ExtractedAt
+FROM CompetitorCatalog
+WHERE CompetitorId = @CompetitorId;
+";
+
+        var list = new List<CompetitorCatalogRow>();
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@CompetitorId", competitorId);
+
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(new CompetitorCatalogRow(
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetDecimal(7),
+                reader.IsDBNull(8) ? null : reader.GetDecimal(8),
+                reader.IsDBNull(9) ? null : reader.GetDateTime(9)
+            ));
+        }
+
+        return list;
+    }
+
+    public sealed record CompetitorCatalogRow(
+        string Url,
+        string? Name,
+        string? Description,
+        string? Ean,
+        string? CompetitorSku,
+        string? Brand,
+        string? Categories,
+        decimal? ListPrice,
+        decimal? PromoPrice,
+        DateTime? ExtractedAt
+    );
 
     public Task<bool> MarkNoMatchAsync(int productId, int competitorId, CancellationToken ct)
     {

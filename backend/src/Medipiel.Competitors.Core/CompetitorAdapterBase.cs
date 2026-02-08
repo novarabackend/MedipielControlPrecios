@@ -92,13 +92,55 @@ public abstract class CompetitorAdapterBase : ICompetitorAdapter
             return null;
         }
 
-        var digits = new string(raw.Where(char.IsDigit).ToArray());
-        if (string.IsNullOrWhiteSpace(digits))
+        raw = System.Net.WebUtility.HtmlDecode(raw);
+
+        // Keep only numeric + separators so we can correctly interpret:
+        // - "$90.700"      -> 90700
+        // - "$90.700,00"   -> 90700.00
+        // - "$36.989,00"   -> 36989.00
+        // The previous implementation removed all separators and would treat cents as part of the integer
+        // (e.g. "36.989,00" -> "3698900" -> 3,698,900), which is wrong for COP pricing.
+        var cleaned = new string(raw.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray());
+        if (string.IsNullOrWhiteSpace(cleaned))
         {
             return null;
         }
 
-        if (decimal.TryParse(digits, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+        var lastDot = cleaned.LastIndexOf('.');
+        var lastComma = cleaned.LastIndexOf(',');
+        var lastSep = Math.Max(lastDot, lastComma);
+
+        // We only treat a separator as decimal point when there are exactly 2 digits after it.
+        // Otherwise it is assumed to be a thousands separator and removed.
+        char? decimalSep = null;
+        if (lastSep >= 0 && cleaned.Length - lastSep - 1 == 2)
+        {
+            decimalSep = cleaned[lastSep];
+        }
+
+        var sb = new System.Text.StringBuilder(cleaned.Length);
+        for (var i = 0; i < cleaned.Length; i++)
+        {
+            var ch = cleaned[i];
+            if (char.IsDigit(ch))
+            {
+                sb.Append(ch);
+                continue;
+            }
+
+            if (decimalSep.HasValue && i == lastSep && ch == decimalSep.Value)
+            {
+                sb.Append('.');
+            }
+        }
+
+        var normalized = sb.ToString();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        if (decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
         {
             return value;
         }

@@ -53,6 +53,16 @@ public sealed class AdapterHttpClient
         return await response.Content.ReadAsStringAsync(ct);
     }
 
+    public async Task<HttpResponseMessage> GetAsync(string url, int delayMs, CancellationToken ct)
+    {
+        if (delayMs > 0)
+        {
+            await Task.Delay(delayMs, ct);
+        }
+
+        return await _httpClient.GetAsync(url, ct);
+    }
+
     public async Task<string?> PostAsync(string url, HttpContent? content, int delayMs, CancellationToken ct)
     {
         if (delayMs > 0)

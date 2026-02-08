@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Medipiel.Competitors.Abstractions;
@@ -64,10 +65,19 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
             }
 
             var apiUrl = BuildApiUrl(apiBase, product.Ean!, storeGroupId);
-            var json = await GetHtmlAsync(apiUrl, delayMs, ct);
+            var (json, notFound) = await GetJsonAsync(apiUrl, delayMs, ct);
+            if (notFound)
+            {
+                await db.MarkNoMatchAsync(product.Id, context.CompetitorId, ct);
+                noMatchCount += 1;
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(json))
             {
-                counters.Errors += 1;
+                await db.MarkNoMatchAsync(product.Id, context.CompetitorId, ct);
+                noMatchCount += 1;
+                Logger.LogWarning("Farmatodo: sin contenido para EAN {Ean}", product.Ean);
                 continue;
             }
 
@@ -94,6 +104,7 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
             if (string.IsNullOrWhiteSpace(url))
             {
                 counters.Errors += 1;
+                Logger.LogWarning("Farmatodo: URL invalida para EAN {Ean}", product.Ean);
                 continue;
             }
 
@@ -203,4 +214,40 @@ public sealed class FarmatodoAdapter : CompetitorAdapterBase
     );
 
     private sealed record PriceValues(decimal? ListPrice, decimal? PromoPrice);
+
+    private async Task<(string? json, bool notFound)> GetJsonAsync(string url, int delayMs, CancellationToken ct)
+    {
+        if (delayMs > 0)
+        {
+            await Task.Delay(delayMs, ct);
+        }
+
+        try
+        {
+            using var response = await HttpClient.GetAsync(url, 0, ct);
+            if (response.StatusCode == HttpStatusCode.NotFound || response.StatusCode == HttpStatusCode.NoContent)
+            {
+                return (null, true);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogWarning("Farmatodo: HTTP {Status} para {Url}", (int)response.StatusCode, url);
+                return (null, false);
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return (null, true);
+            }
+
+            return (json, false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Farmatodo: fallo descargando {Url}", url);
+            return (null, false);
+        }
+    }
 }

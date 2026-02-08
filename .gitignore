@@ -19,6 +19,8 @@ Thumbs.db
 
 ## Logs
 *.log
+.logs/
+.pids/
 
 ## Test results
 TestResults/
@@ -30,6 +32,11 @@ packages/
 
 ## Publish
 publish/
+
+## Plugin build outputs
+backend/plugins/*
+!backend/plugins/.gitkeep
+/plugins/
 
 ## Local env
 appsettings.Development.json

@@ -24,6 +24,9 @@ services:
       - ASPNETCORE_URLS=http://0.0.0.0:5000
       - ConnectionStrings__Default=Server=db;Database=MedipielControlPrecios;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - Adapters__LineaEstetica__NameDebugTop=5
+      - Adapters__LineaEstetica__NameMinScore=0.55
+      - Adapters__LineaEstetica__NameMinGap=0.03
     depends_on:
       - db
 
