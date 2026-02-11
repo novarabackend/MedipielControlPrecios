@@ -7,6 +7,7 @@ export interface SnapshotPrice {
     listPrice: number | null;
     promoPrice: number | null;
     url: string | null;
+    matchMethod: string | null;
 }
 
 export interface SnapshotRow {
@@ -38,14 +39,14 @@ const API_BASE = 'http://localhost:5000/api';
 export class PriceSnapshotsService {
     private _http = inject(HttpClient);
 
-    getLatest(take = 200): Observable<LatestSnapshotResponse> {
+    getLatest(take = 0): Observable<LatestSnapshotResponse> {
         const params = new HttpParams().set('take', take);
         return this._http.get<LatestSnapshotResponse>(`${API_BASE}/price-snapshots/latest`, {
             params,
         });
     }
 
-    getByDate(date: string, take = 200): Observable<LatestSnapshotResponse> {
+    getByDate(date: string, take = 0): Observable<LatestSnapshotResponse> {
         const params = new HttpParams().set('take', take).set('date', date);
         return this._http.get<LatestSnapshotResponse>(`${API_BASE}/price-snapshots/by-date`, {
             params,

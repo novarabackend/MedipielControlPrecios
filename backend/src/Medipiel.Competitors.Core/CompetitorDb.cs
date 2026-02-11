@@ -42,6 +42,7 @@ WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
   AND (
         @OnlyNew = 0
         OR cp.ProductId IS NULL
+        OR cp.MatchMethod IS NULL
         OR NOT (cp.MatchMethod = 'no_match' AND cp.Url IS NULL)
       )
   AND (@OnlyNew = 0 OR ps.Id IS NULL);

@@ -137,6 +137,24 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
                         aiCandidates,
                         ct
                     );
+
+                    // If the full catalog pass did not find a good candidate, fall back to
+                    // direct VTEX search for this specific product before marking no_match.
+                    if (outcome == MatchOutcome.NoMatch)
+                    {
+                        outcome = await TrySyncBySearchAsync(
+                            db,
+                            context,
+                            baseUrl,
+                            product,
+                            delayMs,
+                            minScore,
+                            useAi,
+                            aiMinConfidence,
+                            aiCandidates,
+                            ct
+                        );
+                    }
                 }
                 else
                 {
@@ -872,6 +890,8 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
     {
         var normalized = value.Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder();
+        var prevWasLetter = false;
+        var prevWasDigit = false;
 
         foreach (var ch in normalized)
         {
@@ -883,11 +903,25 @@ public sealed class BellaPielAdapter : CompetitorAdapterBase
 
             if (char.IsLetterOrDigit(ch))
             {
+                // Split letter<->digit boundaries to normalize patterns like:
+                // "x15ml" -> "x 15 ml", "spf50" -> "spf 50", "30ml" -> "30 ml".
+                var isDigit = char.IsDigit(ch);
+                var isLetter = char.IsLetter(ch);
+                if (builder.Length > 0 &&
+                    ((prevWasDigit && isLetter) || (prevWasLetter && isDigit)))
+                {
+                    builder.Append(' ');
+                }
+
                 builder.Append(char.ToLowerInvariant(ch));
+                prevWasDigit = isDigit;
+                prevWasLetter = isLetter;
             }
             else
             {
                 builder.Append(' ');
+                prevWasDigit = false;
+                prevWasLetter = false;
             }
         }
 

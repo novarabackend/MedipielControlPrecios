@@ -9,6 +9,8 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { finalize } from 'rxjs/operators';
 import {
     LatestSnapshotResponse,
@@ -18,6 +20,11 @@ import {
     CompetitorInfo,
 } from 'app/core/price-snapshots/price-snapshots.service';
 import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
+import {
+    ProductCompetitorPrice,
+    ProductDetailResponse,
+    ProductsService,
+} from 'app/core/products/products.service';
 
 interface CompetitorDelta {
     amount: number | null;
@@ -30,21 +37,41 @@ interface SnapshotRowView extends SnapshotRow {
     deltaPromoByCompetitor: Record<number, CompetitorDelta>;
 }
 
+interface EditorCompetitorRow {
+    competitor: CompetitorInfo;
+    latest: ProductCompetitorPrice | null;
+}
+
 @Component({
     selector: 'app-snapshots',
     templateUrl: './snapshots.component.html',
     styleUrls: ['./snapshots.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [CommonModule, MatButtonModule, MatIconModule, MatTableModule],
+    imports: [
+        CommonModule,
+        MatButtonModule,
+        MatIconModule,
+        MatTableModule,
+        MatFormFieldModule,
+        MatInputModule,
+    ],
 })
 export class SnapshotsComponent {
     private _service = inject(PriceSnapshotsService);
     private _alertsService = inject(AlertsService);
+    private _productsService = inject(ProductsService);
 
     readonly loading = signal(false);
     readonly error = signal('');
     readonly data = signal<LatestSnapshotResponse | null>(null);
     readonly alertRules = signal<AlertRule[]>([]);
+    readonly editorOpen = signal(false);
+    readonly editorLoading = signal(false);
+    readonly editorError = signal('');
+    readonly editorProductId = signal<number | null>(null);
+    readonly editorData = signal<ProductDetailResponse | null>(null);
+    readonly editorUrlDrafts = signal<Record<number, string>>({});
+    readonly editorSavingIds = signal<Set<number>>(new Set());
 
     readonly competitors = computed<CompetitorInfo[]>(
         () => this.data()?.competitors ?? []
@@ -108,6 +135,22 @@ export class SnapshotsComponent {
     );
     readonly hasItems = computed(() => this.rowsView().length > 0);
     readonly snapshotDate = computed(() => this.data()?.snapshotDate ?? '—');
+    readonly editorRows = computed<EditorCompetitorRow[]>(() => {
+        const data = this.editorData();
+        if (!data) {
+            return [];
+        }
+
+        const latestByCompetitor = new Map<number, ProductCompetitorPrice>();
+        for (const item of data.latest) {
+            latestByCompetitor.set(item.competitorId, item);
+        }
+
+        return data.competitors.map((competitor) => ({
+            competitor,
+            latest: latestByCompetitor.get(competitor.id) ?? null,
+        }));
+    });
     readonly colorPalette = [
         '#729fcf',
         '#ffd9b3',
@@ -145,6 +188,121 @@ export class SnapshotsComponent {
         return competitor.color ?? this.colorPalette[index % this.colorPalette.length];
     }
 
+    getMatchMethodLabel(method: string | null | undefined): string {
+        const value = (method ?? '').trim().toLowerCase();
+        switch (value) {
+            case 'ean':
+                return 'Match: EAN';
+            case 'name':
+                return 'Match: Nombre/descripcion';
+            case 'ai':
+                return 'Match: IA';
+            case 'manual':
+                return 'Match: Manual';
+            case 'no_match':
+                return 'Match: Sin match';
+            case 'retry':
+                return 'Match: Reintento';
+            default:
+                return 'Match: —';
+        }
+    }
+
+    openQuickEdit(row: SnapshotRow): void {
+        this.editorOpen.set(true);
+        this.editorLoading.set(true);
+        this.editorError.set('');
+        this.editorProductId.set(row.productId);
+        this.editorData.set(null);
+        this.editorUrlDrafts.set({});
+        this.editorSavingIds.set(new Set());
+
+        this._productsService
+            .getProductDetail(row.productId, 7)
+            .pipe(finalize(() => this.editorLoading.set(false)))
+            .subscribe({
+                next: (data) => {
+                    this.editorData.set(data);
+                    this.syncEditorUrlDrafts(data);
+                },
+                error: () =>
+                    this.editorError.set('No se pudo cargar el detalle del producto.'),
+            });
+    }
+
+    closeQuickEdit(): void {
+        this.editorOpen.set(false);
+        this.editorLoading.set(false);
+        this.editorError.set('');
+        this.editorProductId.set(null);
+        this.editorData.set(null);
+        this.editorUrlDrafts.set({});
+        this.editorSavingIds.set(new Set());
+    }
+
+    onEditorUrlChange(competitorId: number, value: string): void {
+        const next = { ...this.editorUrlDrafts() };
+        next[competitorId] = value;
+        this.editorUrlDrafts.set(next);
+    }
+
+    getEditorUrlDraft(competitorId: number, fallback: string | null): string {
+        return this.editorUrlDrafts()[competitorId] ?? fallback ?? '';
+    }
+
+    isEditorSaving(competitorId: number): boolean {
+        return this.editorSavingIds().has(competitorId);
+    }
+
+    saveEditorUrl(competitorId: number): void {
+        const productId = this.editorProductId();
+        if (!productId) {
+            return;
+        }
+
+        const url = (this.editorUrlDrafts()[competitorId] ?? '').trim();
+        if (!url) {
+            this.editorError.set('Ingresa una URL valida para guardar.');
+            return;
+        }
+
+        this.setEditorSaving(competitorId, true);
+        this._productsService
+            .updateCompetitorUrl(productId, competitorId, url)
+            .pipe(finalize(() => this.setEditorSaving(competitorId, false)))
+            .subscribe({
+                next: (updated) => {
+                    this.editorError.set('');
+                    this.editorData.update((current) => {
+                        if (!current) {
+                            return current;
+                        }
+
+                        const latest = current.latest.map((item) =>
+                            item.competitorId === competitorId
+                                ? {
+                                      ...item,
+                                      url: updated.url,
+                                      matchMethod: updated.matchMethod,
+                                      matchScore: updated.matchScore,
+                                      lastMatchedAt: updated.lastMatchedAt,
+                                  }
+                                : item
+                        );
+
+                        return {
+                            ...current,
+                            latest,
+                        };
+                    });
+
+                    this.load();
+                },
+                error: () =>
+                    this.editorError.set('No se pudo guardar la URL.'),
+            });
+    }
+
     isLargeDelta(
         delta: CompetitorDelta | undefined | null,
         brandName: string | null,
@@ -180,5 +338,28 @@ export class SnapshotsComponent {
         return type === 'list'
             ? rule.listPriceThresholdPercent ?? defaultThreshold
             : rule.promoPriceThresholdPercent ?? defaultThreshold;
+    }
+
+    private setEditorSaving(competitorId: number, saving: boolean): void {
+        const next = new Set(this.editorSavingIds());
+        if (saving) {
+            next.add(competitorId);
+        } else {
+            next.delete(competitorId);
+        }
+        this.editorSavingIds.set(next);
+    }
+
+    private syncEditorUrlDrafts(data: ProductDetailResponse): void {
+        const latestByCompetitor = new Map<number, ProductCompetitorPrice>();
+        for (const item of data.latest) {
+            latestByCompetitor.set(item.competitorId, item);
+        }
+
+        const draft: Record<number, string> = {};
+        for (const competitor of data.competitors) {
+            draft[competitor.id] = latestByCompetitor.get(competitor.id)?.url ?? '';
+        }
+        this.editorUrlDrafts.set(draft);
     }
 }

@@ -198,6 +198,16 @@
                                     } @else {
                                         —
                                     }
+                                    <div class="mt-1 text-[11px] text-slate-700">
+                                        {{ getMatchMethodLabel(row.pricesByCompetitor[competitor.id]?.matchMethod) }}
+                                    </div>
+                                    <button
+                                        class="mt-2 text-[11px] underline text-primary-700"
+                                        type="button"
+                                        (click)="openQuickEdit(row)"
+                                    >
+                                        Editar producto
+                                    </button>
                                 </td>
                             }
                         </tr>
@@ -207,3 +217,128 @@
         </div>
     }
 </div>
+
+@if (editorOpen()) {
+    <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+        (click)="closeQuickEdit()"
+    >
+        <div
+            class="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl"
+            (click)="$event.stopPropagation()"
+        >
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-lg font-semibold">Edicion rapida de producto</div>
+                    <div class="text-sm text-secondary">
+                        {{ editorData()?.product?.description ?? 'Cargando...' }}
+                    </div>
+                </div>
+                <button mat-stroked-button type="button" (click)="closeQuickEdit()">
+                    Cerrar
+                </button>
+            </div>
+
+            @if (editorError().length > 0) {
+                <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {{ editorError() }}
+                </div>
+            }
+
+            @if (editorLoading()) {
+                <div class="mt-4 text-sm text-secondary">Cargando detalle...</div>
+            }
+
+            @if (!editorLoading() && editorData()) {
+                <div class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
+                    <div>
+                        <div class="text-[11px] uppercase text-secondary">SKU</div>
+                        <div class="font-medium">{{ editorData()?.product?.sku ?? '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-secondary">EAN</div>
+                        <div class="font-medium">{{ editorData()?.product?.ean ?? '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-secondary">Marca</div>
+                        <div class="font-medium">{{ editorData()?.product?.brand ?? '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-secondary">Categoria</div>
+                        <div class="font-medium">{{ editorData()?.product?.category ?? '—' }}</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 overflow-auto rounded-xl border border-slate-200">
+                    <table class="w-full min-w-[860px]">
+                        <thead>
+                            <tr>
+                                <th>Competidor</th>
+                                <th>Precio lista</th>
+                                <th>Precio promo</th>
+                                <th>Metodo</th>
+                                <th>URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (row of editorRows(); track row.competitor.id) {
+                                <tr>
+                                    <td class="font-medium">{{ row.competitor.name }}</td>
+                                    <td>
+                                        @if (row.latest?.listPrice !== null && row.latest?.listPrice !== undefined) {
+                                            {{ row.latest?.listPrice | number: '1.0-0' }}
+                                        } @else {
+                                            —
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (row.latest?.promoPrice !== null && row.latest?.promoPrice !== undefined) {
+                                            {{ row.latest?.promoPrice | number: '1.0-0' }}
+                                        } @else {
+                                            —
+                                        }
+                                    </td>
+                                    <td>
+                                        {{ getMatchMethodLabel(row.latest?.matchMethod) }}
+                                    </td>
+                                    <td>
+                                        @if (row.latest?.url) {
+                                            <a
+                                                class="text-primary-700 underline"
+                                                [href]="row.latest?.url"
+                                                target="_blank"
+                                            >
+                                                Ver producto
+                                            </a>
+                                        } @else {
+                                            —
+                                        }
+
+                                        <div class="mt-2 flex flex-col gap-2">
+                                            <mat-form-field class="w-full" appearance="outline">
+                                                <mat-label>URL</mat-label>
+                                                <input
+                                                    matInput
+                                                    [value]="getEditorUrlDraft(row.competitor.id, row.latest?.url ?? null)"
+                                                    (input)="onEditorUrlChange(row.competitor.id, $any($event.target).value)"
+                                                />
+                                            </mat-form-field>
+                                            <button
+                                                mat-stroked-button
+                                                type="button"
+                                                (click)="saveEditorUrl(row.competitor.id)"
+                                                [disabled]="isEditorSaving(row.competitor.id)"
+                                            >
+                                                Guardar URL
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}

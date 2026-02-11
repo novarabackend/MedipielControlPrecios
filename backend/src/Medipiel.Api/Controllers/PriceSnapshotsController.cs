@@ -53,72 +53,96 @@ public class PriceSnapshotsController : ControllerBase
             .Select(x => new CompetitorInfo(x.Id, x.Name, ResolveColor(x.Name)))
             .ToList();
 
-        if (snapshotDate is null)
+        var limit = take.GetValueOrDefault(0);
+        if (limit < 0)
         {
-            return new LatestSnapshotPivotResponse(null, orderedCompetitors, new List<SnapshotRow>());
+            limit = 0;
         }
 
-        var limit = take.GetValueOrDefault(200);
-        if (limit <= 0)
-        {
-            limit = 200;
-        }
-
-        var flat = await (
-            from ps in _db.PriceSnapshots.AsNoTracking()
-            join p in _db.Products.AsNoTracking() on ps.ProductId equals p.Id
+        var productsQuery =
+            from p in _db.Products.AsNoTracking()
             join b in _db.Brands.AsNoTracking() on p.BrandId equals b.Id into bJoin
             from b in bJoin.DefaultIfEmpty()
-            join c in _db.Competitors.AsNoTracking() on ps.CompetitorId equals c.Id
-            join cp in _db.CompetitorProducts.AsNoTracking()
-                on new { ps.ProductId, ps.CompetitorId } equals new { cp.ProductId, cp.CompetitorId }
-                into cpJoin
-            from cp in cpJoin.DefaultIfEmpty()
-            where ps.SnapshotDate == snapshotDate.Value
-            select new SnapshotFlat(
+            orderby p.Description
+            select new
+            {
                 p.Id,
                 p.Sku,
                 p.Ean,
                 p.Description,
-                b != null ? b.Name : null,
+                BrandName = b != null ? b.Name : null,
                 p.MedipielListPrice,
-                p.MedipielPromoPrice,
-                c.Id,
-                ps.SnapshotDate,
-                ps.ListPrice,
-                ps.PromoPrice,
-                cp.Url
-            )
-        ).ToListAsync(ct);
+                p.MedipielPromoPrice
+            };
 
-        var rows = flat
-            .GroupBy(item => new
-            {
-                item.ProductId,
-                item.Sku,
-                item.Ean,
-                item.Description,
-                item.BrandName,
-                item.MedipielListPrice,
-                item.MedipielPromoPrice
-            })
-            .Select(group => new SnapshotRow(
-                group.Key.ProductId,
-                group.Key.Sku,
-                group.Key.Ean,
-                group.Key.Description,
-                group.Key.BrandName,
-                group.Key.MedipielListPrice,
-                group.Key.MedipielPromoPrice,
-                group.Select(item => new SnapshotPrice(
-                    item.CompetitorId,
-                    item.ListPrice,
-                    item.PromoPrice,
-                    item.Url
-                )).ToList()
+        if (limit > 0)
+        {
+            productsQuery = productsQuery.Take(limit);
+        }
+
+        var products = await productsQuery.ToListAsync(ct);
+        if (products.Count == 0)
+        {
+            return new LatestSnapshotPivotResponse(snapshotDate, orderedCompetitors, new List<SnapshotRow>());
+        }
+
+        var productIds = products.Select(p => p.Id).ToList();
+        var competitorIds = orderedCompetitors.Select(c => c.Id).ToList();
+
+        var snapshots = snapshotDate is null
+            ? new List<SnapshotProjection>()
+            : await _db.PriceSnapshots.AsNoTracking()
+                .Where(ps => ps.SnapshotDate == snapshotDate.Value)
+                .Where(ps => productIds.Contains(ps.ProductId))
+                .Where(ps => competitorIds.Contains(ps.CompetitorId))
+                .Select(ps => new SnapshotProjection(
+                    ps.ProductId,
+                    ps.CompetitorId,
+                    ps.ListPrice,
+                    ps.PromoPrice
+                ))
+                .ToListAsync(ct);
+
+        var mappings = await _db.CompetitorProducts.AsNoTracking()
+            .Where(cp => productIds.Contains(cp.ProductId))
+            .Where(cp => competitorIds.Contains(cp.CompetitorId))
+            .Select(cp => new { cp.ProductId, cp.CompetitorId, cp.Url, cp.MatchMethod })
+            .ToListAsync(ct);
+
+        var priceByProductCompetitor = snapshots.ToDictionary(
+            s => (s.ProductId, s.CompetitorId),
+            s => new { s.ListPrice, s.PromoPrice }
+        );
+
+        var mappingByProductCompetitor = mappings.ToDictionary(
+            m => (m.ProductId, m.CompetitorId),
+            m => new { m.Url, m.MatchMethod }
+        );
+
+        var rows = products
+            .Select(product => new SnapshotRow(
+                product.Id,
+                product.Sku,
+                product.Ean,
+                product.Description,
+                product.BrandName,
+                product.MedipielListPrice,
+                product.MedipielPromoPrice,
+                orderedCompetitors.Select(competitor =>
+                {
+                    var key = (product.Id, competitor.Id);
+                    var hasPrice = priceByProductCompetitor.TryGetValue(key, out var price);
+                    mappingByProductCompetitor.TryGetValue(key, out var mapping);
+
+                    return new SnapshotPrice(
+                        competitor.Id,
+                        hasPrice ? price!.ListPrice : null,
+                        hasPrice ? price!.PromoPrice : null,
+                        mapping?.Url,
+                        mapping?.MatchMethod
+                    );
+                }).ToList()
             ))
-            .OrderBy(row => row.Description)
-            .Take(limit)
             .ToList();
 
         return new LatestSnapshotPivotResponse(snapshotDate, orderedCompetitors, rows);
@@ -210,20 +234,13 @@ public sealed record SnapshotPrice(
     int CompetitorId,
     decimal? ListPrice,
     decimal? PromoPrice,
-    string? Url
+    string? Url,
+    string? MatchMethod
 );
 
-public sealed record SnapshotFlat(
+public sealed record SnapshotProjection(
     int ProductId,
-    string? Sku,
-    string? Ean,
-    string Description,
-    string? BrandName,
-    decimal? MedipielListPrice,
-    decimal? MedipielPromoPrice,
     int CompetitorId,
-    DateOnly SnapshotDate,
     decimal? ListPrice,
-    decimal? PromoPrice,
-    string? Url
+    decimal? PromoPrice
 );

@@ -98,10 +98,24 @@ public class SchedulerController : ControllerBase
         _ = Task.Run(async () =>
         {
             using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var runner = scope.ServiceProvider.GetRequiredService<CompetitorRunService>();
             var execution = scope.ServiceProvider.GetRequiredService<SchedulerExecutionService>();
             try
             {
+                // Manual runs should "do the full job": retry previous no_match mappings (Url is null),
+                // otherwise those products can get stuck forever even if the competitor catalog is updated later.
+                await db.Database.ExecuteSqlRawAsync(@"
+UPDATE cp
+SET cp.MatchMethod = 'retry',
+    cp.MatchScore = NULL
+FROM CompetitorProducts cp
+INNER JOIN Competitors c ON c.Id = cp.CompetitorId
+WHERE c.IsActive = 1
+  AND cp.MatchMethod = 'no_match'
+  AND cp.Url IS NULL;
+", CancellationToken.None);
+
                 var summary = await runner.RunAsync(run.Id, null, onlyNew: true, batchSize: 0, CancellationToken.None);
                 var message = summary.Messages.Count > 0 ? string.Join(" | ", summary.Messages) : "OK";
                 await execution.CompleteRunAsync(run.Id, "Success", message, CancellationToken.None);

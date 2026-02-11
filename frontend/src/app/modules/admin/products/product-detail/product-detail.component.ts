@@ -194,7 +194,7 @@ export class ProductDetailComponent {
                     });
                 },
                 error: () =>
-                    this.error.set('No se pudo guardar la URL manual.'),
+                    this.error.set('No se pudo guardar la URL.'),
             });
     }
 

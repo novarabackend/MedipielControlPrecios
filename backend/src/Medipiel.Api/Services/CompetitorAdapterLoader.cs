@@ -44,6 +44,9 @@ public sealed class CompetitorAdapterLoader : IHostedService
         }
 
         var dlls = Directory.GetFiles(pluginsPath, "Medipiel.Competitors.*.dll", SearchOption.AllDirectories)
+            // We publish each adapter into plugins/<AdapterName>/... and keep the root clean.
+            // Ignoring root-level dlls avoids duplicate loads and dependency mismatches.
+            .Where(path => !string.Equals(Path.GetDirectoryName(path), pluginsPath, StringComparison.OrdinalIgnoreCase))
             .Where(path => !path.EndsWith("Medipiel.Competitors.Abstractions.dll", StringComparison.OrdinalIgnoreCase))
             .Where(path => !path.EndsWith("Medipiel.Competitors.Core.dll", StringComparison.OrdinalIgnoreCase))
             .ToArray();
