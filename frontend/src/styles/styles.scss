@@ -3,6 +3,126 @@
 /*  @ Styles from this file will override 'vendors.scss' and Fuse's base styles.
 /* ----------------------------------------------------------------------------------------------------- */
 
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;600;700&display=swap');
+
+:root {
+    --medipiel-primary: #007078;
+    --medipiel-primary-dark: #00585f;
+    --medipiel-primary-soft: #e6f4f4;
+    --medipiel-accent: #a57356;
+    --medipiel-border: #d5dfe2;
+    --medipiel-page-bg: #f4f8f8;
+}
+
+html,
+body {
+    font-family: 'Baloo 2', 'Nunito', 'Helvetica Neue', Arial, sans-serif;
+}
+
+body,
+.theme-default {
+    --fuse-primary-50: #e6f4f4;
+    --fuse-primary-100: #cce9ea;
+    --fuse-primary-200: #99d4d5;
+    --fuse-primary-300: #66bfc0;
+    --fuse-primary-400: #33aaab;
+    --fuse-primary-500: #138f90;
+    --fuse-primary-600: #007078;
+    --fuse-primary-700: #00585f;
+    --fuse-primary-800: #004047;
+    --fuse-primary-900: #00282e;
+    --fuse-primary-950: #00161a;
+    --fuse-primary: #007078;
+    --fuse-primary-rgb: 0, 112, 120;
+    --fuse-on-primary: #ffffff;
+    --fuse-on-primary-rgb: 255, 255, 255;
+
+    --fuse-accent-50: #f7f1ee;
+    --fuse-accent-100: #ede3dd;
+    --fuse-accent-200: #dbc7bb;
+    --fuse-accent-300: #c9ab99;
+    --fuse-accent-400: #b78f77;
+    --fuse-accent-500: #a57356;
+    --fuse-accent-600: #8b5f46;
+    --fuse-accent-700: #704b37;
+    --fuse-accent-800: #553828;
+    --fuse-accent-900: #3a2419;
+    --fuse-accent-950: #22140e;
+    --fuse-accent: #a57356;
+    --fuse-accent-rgb: 165, 115, 86;
+    --fuse-on-accent: #ffffff;
+    --fuse-on-accent-rgb: 255, 255, 255;
+}
+
+body.light,
+.theme-default.light {
+    --fuse-bg-default: var(--medipiel-page-bg);
+    --fuse-bg-default-rgb: 244, 248, 248;
+    --fuse-bg-card: #ffffff;
+    --fuse-bg-card-rgb: 255, 255, 255;
+    --fuse-bg-dialog: #ffffff;
+    --fuse-bg-dialog-rgb: 255, 255, 255;
+    --fuse-bg-hover: rgba(0, 112, 120, 0.08);
+    --fuse-divider: var(--medipiel-border);
+    --fuse-border: var(--medipiel-border);
+}
+
+.medipiel-sidebar {
+    color: #f3fffe !important;
+}
+
+.medipiel-sidebar .fuse-vertical-navigation-wrapper {
+    background: linear-gradient(
+        180deg,
+        var(--medipiel-primary) 0%,
+        #00666d 55%,
+        var(--medipiel-primary-dark) 100%
+    ) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.medipiel-sidebar .fuse-vertical-navigation-item-title,
+.medipiel-sidebar .fuse-vertical-navigation-item-icon,
+.medipiel-sidebar .fuse-vertical-navigation-item-arrow,
+.medipiel-sidebar .fuse-vertical-navigation-item-subtitle {
+    color: rgba(243, 255, 254, 0.92) !important;
+}
+
+.medipiel-sidebar .fuse-vertical-navigation-item.fuse-vertical-navigation-item-active,
+.medipiel-sidebar
+    .fuse-vertical-navigation-item.fuse-vertical-navigation-item-active-forced {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.medipiel-sidebar
+    .fuse-vertical-navigation-item:not(.fuse-vertical-navigation-item-active):hover {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.medipiel-topbar {
+    border-bottom: 1px solid var(--medipiel-border);
+    box-shadow: 0 2px 14px rgba(0, 112, 120, 0.08);
+}
+
+a,
+.text-primary,
+[class*='text-primary-'] {
+    color: var(--medipiel-primary);
+}
+
+button.mat-mdc-outlined-button,
+button.mat-mdc-unelevated-button,
+button.mat-mdc-raised-button {
+    border-radius: 999px !important;
+}
+
+button.mat-mdc-unelevated-button.mat-primary,
+button.mat-mdc-raised-button.mat-primary {
+    box-shadow: 0 10px 24px rgba(0, 112, 120, 0.24) !important;
+}
+
 quick-chat {
     display: none !important;
 }

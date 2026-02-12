@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { Router } from '@angular/router';
@@ -18,7 +17,6 @@ import { Subject, takeUntil } from 'rxjs';
         MatButtonModule,
         MatMenuModule,
         MatIconModule,
-        MatDividerModule,
     ],
 })
 export class UserComponent implements OnInit, OnDestroy {
@@ -63,26 +61,6 @@ export class UserComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Update the user status
-     *
-     * @param status
-     */
-    updateUserStatus(status: string): void {
-        // Return if user is not available
-        if (!this.user()) {
-            return;
-        }
-
-        // Update the user
-        this._userService
-            .update({
-                ...this.user(),
-                status,
-            })
-            .subscribe();
-    }
 
     /**
      * Sign out

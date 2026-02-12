@@ -12,7 +12,6 @@ import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -23,7 +22,6 @@ import { Subject, takeUntil } from 'rxjs';
     imports: [
         FuseLoadingBarComponent,
         FuseVerticalNavigationComponent,
-        NotificationsComponent,
         UserComponent,
         MatIconModule,
         MatButtonModule,
