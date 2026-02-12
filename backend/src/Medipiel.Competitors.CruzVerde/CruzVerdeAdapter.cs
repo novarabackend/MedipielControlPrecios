@@ -49,6 +49,55 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
         var useAi = Configuration.GetValue<bool?>("Adapters:CruzVerde:UseAi") ?? true;
         var aiMinConfidence = Configuration.GetValue<double?>("Adapters:CruzVerde:AiMinConfidence") ?? 0.6;
         var aiCandidates = Configuration.GetValue<int?>("Adapters:CruzVerde:AiCandidates") ?? 5;
+        var catalogRefreshDays = Configuration.GetValue<int?>("Adapters:CruzVerde:CatalogRefreshDays") ?? 7;
+
+        var catalog = await db.LoadCompetitorCatalogAsync(context.CompetitorId, ct);
+        if (catalog.Count == 0)
+        {
+            Logger.LogInformation("CruzVerde: catalogo vacio, construyendo por marcas.");
+        }
+        else
+        {
+            var lastExtractedAt = catalog
+                .Select(x => x.ExtractedAt ?? DateTime.MinValue)
+                .DefaultIfEmpty(DateTime.MinValue)
+                .Max();
+
+            if (catalogRefreshDays > 0 && DateTime.UtcNow - lastExtractedAt > TimeSpan.FromDays(catalogRefreshDays))
+            {
+                Logger.LogInformation(
+                    "CruzVerde: catalogo stale (LastExtractedAt={Last}), refrescando por marcas.",
+                    lastExtractedAt
+                );
+                catalog.Clear();
+            }
+        }
+
+        if (catalog.Count == 0)
+        {
+            var brandNames = await db.LoadBrandNamesAsync(ct);
+            Logger.LogInformation("CruzVerde: marcas base (Medipiel)={Count}.", brandNames.Count);
+            await CrawlCatalogByBrandsAsync(
+                db,
+                context,
+                apiBase,
+                loginUrl,
+                inventoryId,
+                inventoryZone,
+                searchLimit,
+                delayMs,
+                brandNames,
+                ct);
+            catalog = await db.LoadCompetitorCatalogAsync(context.CompetitorId, ct);
+            Logger.LogInformation("CruzVerde: catalogo cargado items={Count}.", catalog.Count);
+        }
+        else
+        {
+            Logger.LogInformation("CruzVerde: reutilizando catalogo cache items={Count}.", catalog.Count);
+        }
+
+        var catalogByBrand = BuildBrandIndex(catalog);
+        var catalogByEan = BuildUniqueEanIndex(catalog);
 
         var products = await db.LoadProductsAsync(
             context.CompetitorId,
@@ -106,6 +155,9 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
                     useAi,
                     aiMinConfidence,
                     aiCandidates,
+                    catalog,
+                    catalogByBrand,
+                    catalogByEan,
                     ct);
                 if (outcome == MatchOutcome.Matched)
                 {
@@ -193,6 +245,21 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
             ct
         );
 
+        await db.UpsertCompetitorCatalogAsync(
+            context.CompetitorId,
+            url,
+            item.Name,
+            null,
+            null,
+            productId,
+            item.Brand,
+            null,
+            prices.ListPrice,
+            prices.PromoPrice,
+            DateTime.UtcNow,
+            ct
+        );
+
         await db.UpsertPriceSnapshotAsync(
             product.Id,
             context.CompetitorId,
@@ -219,10 +286,32 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
         bool useAi,
         double aiMinConfidence,
         int aiCandidates,
+        List<CompetitorDb.CompetitorCatalogRow> catalog,
+        Dictionary<string, List<CompetitorDb.CompetitorCatalogRow>> catalogByBrand,
+        Dictionary<string, CompetitorDb.CompetitorCatalogRow> catalogByEan,
         CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(product.Ean))
         {
+            var eanKey = NormalizeEan(product.Ean);
+            if (!string.IsNullOrWhiteSpace(eanKey) && catalogByEan.TryGetValue(eanKey!, out var cached))
+            {
+                return await PersistCatalogMatchAsync(
+                        db,
+                        context,
+                        product,
+                        cached,
+                        apiBase,
+                        loginUrl,
+                        inventoryId,
+                        delayMs,
+                        "ean",
+                        1,
+                        ct)
+                    ? MatchOutcome.Matched
+                    : MatchOutcome.Error;
+            }
+
             var eanResult = await SearchAsync(apiBase, loginUrl, inventoryId, inventoryZone, product.Ean!, searchLimit, delayMs, ct);
             if (!eanResult.Success)
             {
@@ -249,31 +338,68 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
             }
         }
 
-        var query = BuildSearchQuery(product.Description);
-        if (string.IsNullOrWhiteSpace(query))
+        if (catalog.Count == 0)
+        {
+            var query = BuildSearchQuery(product.Description);
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return MatchOutcome.NoMatch;
+            }
+
+            var result = await SearchAsync(apiBase, loginUrl, inventoryId, inventoryZone, query, searchLimit, delayMs, ct);
+            if (!result.Success)
+            {
+                return MatchOutcome.Error;
+            }
+
+            var hits = result.Hits;
+            if (hits.Count == 0)
+            {
+                return MatchOutcome.NoMatch;
+            }
+
+            var selected = await SelectCandidateAsync(product.Description, hits, "name", minScore, useAi, aiMinConfidence, aiCandidates, ct);
+            if (selected is null)
+            {
+                return MatchOutcome.NoMatch;
+            }
+
+            return await PersistMatchAsync(db, context, product, selected.Product, selected.Method, selected.Score, ct)
+                ? MatchOutcome.Matched
+                : MatchOutcome.Error;
+        }
+
+        var candidates = ResolveCatalogCandidates(product.BrandName, catalog, catalogByBrand);
+        if (candidates.Count == 0)
         {
             return MatchOutcome.NoMatch;
         }
 
-        var result = await SearchAsync(apiBase, loginUrl, inventoryId, inventoryZone, query, searchLimit, delayMs, ct);
-        if (!result.Success)
-        {
-            return MatchOutcome.Error;
-        }
-
-        var hits = result.Hits;
-        if (hits.Count == 0)
-        {
-            return MatchOutcome.NoMatch;
-        }
-
-        var selected = await SelectCandidateAsync(product.Description, hits, "name", minScore, useAi, aiMinConfidence, aiCandidates, ct);
-        if (selected is null)
+        var selectedFromCatalog = await SelectCatalogCandidateAsync(
+            product.Description,
+            candidates,
+            minScore,
+            useAi,
+            aiMinConfidence,
+            aiCandidates,
+            ct);
+        if (selectedFromCatalog is null)
         {
             return MatchOutcome.NoMatch;
         }
 
-        return await PersistMatchAsync(db, context, product, selected.Product, selected.Method, selected.Score, ct)
+        return await PersistCatalogMatchAsync(
+                db,
+                context,
+                product,
+                selectedFromCatalog.Product,
+                apiBase,
+                loginUrl,
+                inventoryId,
+                delayMs,
+                selectedFromCatalog.Method,
+                selectedFromCatalog.Score,
+                ct)
             ? MatchOutcome.Matched
             : MatchOutcome.Error;
     }
@@ -305,6 +431,21 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
             ct
         );
 
+        await db.UpsertCompetitorCatalogAsync(
+            context.CompetitorId,
+            url,
+            hit.ProductName,
+            null,
+            matchMethod == "ean" ? NormalizeEan(product.Ean) : null,
+            hit.ProductId,
+            hit.Brand,
+            null,
+            prices.ListPrice,
+            prices.PromoPrice,
+            DateTime.UtcNow,
+            ct
+        );
+
         await db.UpsertPriceSnapshotAsync(
             product.Id,
             context.CompetitorId,
@@ -327,21 +468,46 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
         int delayMs,
         CancellationToken ct)
     {
-        var url = BuildSearchUrl(apiBase, query, limit, inventoryId, inventoryZone);
+        var paged = await SearchPagedAsync(
+            apiBase,
+            loginUrl,
+            inventoryId,
+            inventoryZone,
+            query,
+            limit,
+            offset: 0,
+            delayMs,
+            ct);
+
+        return new SearchResult(paged.Success, paged.Hits);
+    }
+
+    private async Task<SearchPagedResult> SearchPagedAsync(
+        string apiBase,
+        string loginUrl,
+        string inventoryId,
+        string inventoryZone,
+        string query,
+        int limit,
+        int offset,
+        int delayMs,
+        CancellationToken ct)
+    {
+        var url = BuildSearchUrl(apiBase, query, limit, offset, inventoryId, inventoryZone);
         var json = await GetJsonWithSessionAsync(url, loginUrl, delayMs, ct);
         if (string.IsNullOrWhiteSpace(json))
         {
-            return new SearchResult(false, new List<SearchHit>());
+            return new SearchPagedResult(false, null, new List<SearchHit>());
         }
 
         try
         {
             var response = JsonSerializer.Deserialize<SearchResponse>(json, JsonOptions);
-            return new SearchResult(true, response?.Hits ?? new List<SearchHit>());
+            return new SearchPagedResult(true, response?.Total, response?.Hits ?? new List<SearchHit>());
         }
         catch (JsonException)
         {
-            return new SearchResult(false, new List<SearchHit>());
+            return new SearchPagedResult(false, null, new List<SearchHit>());
         }
     }
 
@@ -409,10 +575,16 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
         }
     }
 
-    private static string BuildSearchUrl(string apiBase, string query, int limit, string inventoryId, string inventoryZone)
+    private static string BuildSearchUrl(
+        string apiBase,
+        string query,
+        int limit,
+        int offset,
+        string inventoryId,
+        string inventoryZone)
     {
         var baseUrl = apiBase.TrimEnd('/');
-        return $"{baseUrl}/products/search?limit={limit}&offset=0&sort=&q={Uri.EscapeDataString(query)}&inventoryId={Uri.EscapeDataString(inventoryId)}&inventoryZone={Uri.EscapeDataString(inventoryZone)}";
+        return $"{baseUrl}/products/search?limit={limit}&offset={offset}&sort=&q={Uri.EscapeDataString(query)}&inventoryId={Uri.EscapeDataString(inventoryId)}&inventoryZone={Uri.EscapeDataString(inventoryZone)}";
     }
 
     private static string BuildSummaryUrl(string apiBase, string productId, string inventoryId)
@@ -613,6 +785,508 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
         }
 
         return string.Join(' ', tokens);
+    }
+
+    private async Task CrawlCatalogByBrandsAsync(
+        CompetitorDb db,
+        AdapterContext context,
+        string apiBase,
+        string loginUrl,
+        string inventoryId,
+        string inventoryZone,
+        int searchLimit,
+        int delayMs,
+        List<string> brandNames,
+        CancellationToken ct)
+    {
+        if (brandNames.Count == 0)
+        {
+            Logger.LogWarning("CruzVerde: no hay marcas para iniciar crawl.");
+            return;
+        }
+
+        var visitedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var totalUpserts = 0;
+
+        for (var i = 0; i < brandNames.Count; i += 1)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var brand = NormalizeBrandForSearch(brandNames[i]);
+            if (string.IsNullOrWhiteSpace(brand))
+            {
+                continue;
+            }
+
+            var offset = 0;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var page = await SearchPagedAsync(
+                    apiBase,
+                    loginUrl,
+                    inventoryId,
+                    inventoryZone,
+                    brand,
+                    searchLimit,
+                    offset,
+                    delayMs,
+                    ct);
+
+                if (!page.Success)
+                {
+                    break;
+                }
+
+                if (page.Hits.Count == 0)
+                {
+                    break;
+                }
+
+                foreach (var hit in page.Hits)
+                {
+                    var url = BuildProductUrl(context.BaseUrl, hit.ProductId, hit.PageUrl);
+                    if (string.IsNullOrWhiteSpace(url))
+                    {
+                        continue;
+                    }
+
+                    var prices = ResolvePrices(hit.Prices);
+                    await db.UpsertCompetitorCatalogAsync(
+                        context.CompetitorId,
+                        url,
+                        hit.ProductName,
+                        null,
+                        null,
+                        hit.ProductId,
+                        hit.Brand,
+                        null,
+                        prices.ListPrice,
+                        prices.PromoPrice,
+                        DateTime.UtcNow,
+                        ct
+                    );
+
+                    if (visitedUrls.Add(url))
+                    {
+                        totalUpserts += 1;
+                    }
+                }
+
+                offset += Math.Max(1, searchLimit);
+                if (page.Total.HasValue && offset >= page.Total.Value)
+                {
+                    break;
+                }
+
+                if (!page.Total.HasValue && page.Hits.Count < searchLimit)
+                {
+                    break;
+                }
+            }
+
+            if ((i + 1) % 25 == 0 || i + 1 == brandNames.Count)
+            {
+                Logger.LogInformation(
+                    "CruzVerde: crawl marcas progreso {Done}/{Total} (UrlsUnicas={Unique}).",
+                    i + 1,
+                    brandNames.Count,
+                    visitedUrls.Count
+                );
+            }
+        }
+
+        Logger.LogInformation(
+            "CruzVerde: crawl catalogo por marcas finalizado. UrlsUnicas={Unique} Upserts~={Upserts}.",
+            visitedUrls.Count,
+            totalUpserts
+        );
+    }
+
+    private static Dictionary<string, List<CompetitorDb.CompetitorCatalogRow>> BuildBrandIndex(
+        List<CompetitorDb.CompetitorCatalogRow> catalog)
+    {
+        var dict = new Dictionary<string, List<CompetitorDb.CompetitorCatalogRow>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in catalog)
+        {
+            var key = NormalizeBrandKey(item.Brand);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            if (!dict.TryGetValue(key!, out var list))
+            {
+                list = new List<CompetitorDb.CompetitorCatalogRow>();
+                dict[key!] = list;
+            }
+
+            list.Add(item);
+        }
+
+        return dict;
+    }
+
+    private static Dictionary<string, CompetitorDb.CompetitorCatalogRow> BuildUniqueEanIndex(
+        List<CompetitorDb.CompetitorCatalogRow> catalog)
+    {
+        return catalog
+            .Select(row => new { Row = row, Ean = NormalizeEan(row.Ean) })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Ean))
+            .GroupBy(x => x.Ean!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().Row, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static List<CompetitorDb.CompetitorCatalogRow> ResolveCatalogCandidates(
+        string? brandName,
+        List<CompetitorDb.CompetitorCatalogRow> catalog,
+        Dictionary<string, List<CompetitorDb.CompetitorCatalogRow>> catalogByBrand)
+    {
+        var brandKey = NormalizeBrandKey(brandName);
+        if (!string.IsNullOrWhiteSpace(brandKey) &&
+            catalogByBrand.TryGetValue(brandKey!, out var list) &&
+            list.Count > 0)
+        {
+            return list;
+        }
+
+        return catalog;
+    }
+
+    private async Task<CatalogSelectionResult?> SelectCatalogCandidateAsync(
+        string description,
+        List<CompetitorDb.CompetitorCatalogRow> candidates,
+        double minScore,
+        bool useAi,
+        double aiMinConfidence,
+        int aiCandidates,
+        CancellationToken ct)
+    {
+        var ranked = RankCatalogCandidates(description, candidates);
+        var best = ranked.FirstOrDefault();
+        if (best?.Product is null)
+        {
+            return null;
+        }
+
+        if (best.Score >= minScore)
+        {
+            return new CatalogSelectionResult(best.Product, best.Score, "name");
+        }
+
+        if (!useAi)
+        {
+            return null;
+        }
+
+        var selection = await TrySelectCatalogWithAiAsync(description, ranked, aiCandidates, ct);
+        if (selection is null || selection.Confidence < aiMinConfidence)
+        {
+            return null;
+        }
+
+        return new CatalogSelectionResult(selection.Product, selection.Confidence, "ai");
+    }
+
+    private static List<CatalogCandidateResult> RankCatalogCandidates(
+        string description,
+        List<CompetitorDb.CompetitorCatalogRow> candidates)
+    {
+        return candidates
+            .Select(candidate =>
+            {
+                var candidateText = BuildCatalogCandidateText(candidate);
+                var score = ComputeScore(description, candidateText);
+                return new CatalogCandidateResult(candidate, score);
+            })
+            .OrderByDescending(result => result.Score)
+            .ToList();
+    }
+
+    private static string BuildCatalogCandidateText(CompetitorDb.CompetitorCatalogRow product)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(product.Brand))
+        {
+            parts.Add(product.Brand);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Name))
+        {
+            parts.Add(product.Name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Description))
+        {
+            parts.Add(product.Description);
+        }
+
+        return string.Join(' ', parts);
+    }
+
+    private async Task<CatalogAiSelection?> TrySelectCatalogWithAiAsync(
+        string description,
+        List<CatalogCandidateResult> ranked,
+        int maxCandidates,
+        CancellationToken ct)
+    {
+        var apiKey = ResolveOpenAiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            Logger.LogWarning("CruzVerde: OpenAI API key no configurada.");
+            return null;
+        }
+
+        var maxRequestsPerMinute = Configuration.GetValue<int?>("Adapters:CruzVerde:AiMaxRequestsPerMinute") ?? 10;
+        var maxRetries = Configuration.GetValue<int?>("Adapters:CruzVerde:AiMaxRetries") ?? 3;
+        var retryBaseDelayMs = Configuration.GetValue<int?>("Adapters:CruzVerde:AiRetryBaseDelayMs") ?? 5000;
+
+        var candidates = ranked
+            .Where(r => r.Product is not null)
+            .Take(Math.Max(1, maxCandidates))
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var model = Configuration.GetValue<string>("Adapters:CruzVerde:AiModel") ?? "gpt-4o-mini";
+        var payload = new
+        {
+            model,
+            temperature = 0,
+            messages = new[]
+            {
+                new
+                {
+                    role = "system",
+                    content = "Eres un asistente que empareja productos. Elige el mejor candidato. Responde SOLO JSON: {\"index\":number,\"confidence\":number,\"reason\":string}. Si ninguno coincide, usa index -1 y confidence 0."
+                },
+                new
+                {
+                    role = "user",
+                    content = BuildCatalogAiPrompt(description, candidates)
+                }
+            }
+        };
+
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        for (var attempt = 0; attempt <= maxRetries; attempt += 1)
+        {
+            await EnforceAiRateLimitAsync(maxRequestsPerMinute, ct);
+
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            using var response = await http.PostAsync("https://api.openai.com/v1/chat/completions", content, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseJson = await response.Content.ReadAsStringAsync(ct);
+                var raw = ExtractAssistantContent(responseJson);
+                var json = ExtractJsonObject(raw);
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    var index = root.TryGetProperty("index", out var idxEl) ? idxEl.GetInt32() : -1;
+                    var confidence = root.TryGetProperty("confidence", out var confEl) ? confEl.GetDouble() : 0.0;
+                    if (index < 0 || index >= candidates.Count)
+                    {
+                        return null;
+                    }
+
+                    var selected = candidates[index].Product!;
+                    return new CatalogAiSelection(selected, confidence);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "CruzVerde: respuesta OpenAI invalida.");
+                    return null;
+                }
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < maxRetries)
+            {
+                var delay = ResolveRetryDelay(response, retryBaseDelayMs, attempt);
+                Logger.LogWarning("CruzVerde: OpenAI 429, reintentando en {DelayMs}ms.", delay.TotalMilliseconds);
+                await Task.Delay(delay, ct);
+                continue;
+            }
+
+            Logger.LogWarning("CruzVerde: OpenAI fallo {Status}", response.StatusCode);
+            return null;
+        }
+
+        return null;
+    }
+
+    private static string BuildCatalogAiPrompt(string description, List<CatalogCandidateResult> candidates)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("Producto catalogo:");
+        builder.AppendLine(description);
+        builder.AppendLine();
+        builder.AppendLine("Candidatos:");
+        for (var i = 0; i < candidates.Count; i += 1)
+        {
+            var candidate = candidates[i].Product;
+            builder.AppendLine($"[{i}] Marca: {candidate.Brand} | Nombre: {candidate.Name} | Url: {candidate.Url} | Sku: {candidate.CompetitorSku} | Lista: {candidate.ListPrice} | Promo: {candidate.PromoPrice}");
+        }
+
+        return builder.ToString();
+    }
+
+    private async Task<bool> PersistCatalogMatchAsync(
+        CompetitorDb db,
+        AdapterContext context,
+        ProductRow product,
+        CompetitorDb.CompetitorCatalogRow hit,
+        string apiBase,
+        string loginUrl,
+        string inventoryId,
+        int delayMs,
+        string matchMethod,
+        double matchScore,
+        CancellationToken ct)
+    {
+        var url = hit.Url;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        var productId = !string.IsNullOrWhiteSpace(hit.CompetitorSku)
+            ? hit.CompetitorSku
+            : ExtractProductId(url);
+        if (string.IsNullOrWhiteSpace(productId))
+        {
+            return false;
+        }
+
+        var listPrice = hit.ListPrice;
+        var promoPrice = hit.PromoPrice;
+
+        var canReuseCachedPrices = hit.ExtractedAt.HasValue &&
+            hit.ExtractedAt.Value.Date == context.RunDate.Date &&
+            (listPrice.HasValue || promoPrice.HasValue);
+
+        var name = hit.Name;
+        var brand = hit.Brand;
+        var pageUrl = (string?)null;
+
+        if (!canReuseCachedPrices)
+        {
+            var summary = await GetProductSummaryAsync(apiBase, loginUrl, inventoryId, productId!, delayMs, ct);
+            if (summary is null)
+            {
+                return false;
+            }
+
+            name = summary.Name ?? name;
+            brand = summary.Brand ?? brand;
+            pageUrl = summary.PageUrl;
+            var freshUrl = BuildProductUrl(context.BaseUrl, productId!, pageUrl);
+            if (!string.IsNullOrWhiteSpace(freshUrl))
+            {
+                url = freshUrl;
+            }
+
+            var prices = ResolvePrices(summary.Prices);
+            listPrice = prices.ListPrice;
+            promoPrice = prices.PromoPrice;
+
+            await db.UpsertCompetitorCatalogAsync(
+                context.CompetitorId,
+                url,
+                name,
+                hit.Description,
+                hit.Ean,
+                productId!,
+                brand,
+                hit.Categories,
+                listPrice,
+                promoPrice,
+                DateTime.UtcNow,
+                ct
+            );
+        }
+
+        await db.UpsertCompetitorProductAsync(
+            product.Id,
+            context.CompetitorId,
+            url,
+            name,
+            matchMethod,
+            (decimal)matchScore,
+            DateTime.UtcNow,
+            ct
+        );
+
+        if (matchMethod == "ean" && !string.IsNullOrWhiteSpace(product.Ean))
+        {
+            await db.UpsertCompetitorCatalogAsync(
+                context.CompetitorId,
+                url,
+                name,
+                hit.Description,
+                NormalizeEan(product.Ean),
+                productId!,
+                brand,
+                hit.Categories,
+                listPrice,
+                promoPrice,
+                DateTime.UtcNow,
+                ct
+            );
+        }
+
+        await db.UpsertPriceSnapshotAsync(
+            product.Id,
+            context.CompetitorId,
+            context.RunDate.Date,
+            listPrice,
+            promoPrice,
+            ct
+        );
+
+        return true;
+    }
+
+    private static string? NormalizeEan(string? ean)
+    {
+        if (string.IsNullOrWhiteSpace(ean))
+        {
+            return null;
+        }
+
+        var digits = new string(ean.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    private static string? NormalizeBrandKey(string? brand)
+    {
+        if (string.IsNullOrWhiteSpace(brand))
+        {
+            return null;
+        }
+
+        var cleaned = Regex.Replace(brand, @"^\s*\d+\s*-\s*", string.Empty);
+        var normalized = NormalizeText(cleaned);
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string NormalizeBrandForSearch(string brand)
+    {
+        // Brands are stored like "0041 - LA ROCHE". Search works better without the numeric prefix.
+        var cleaned = Regex.Replace(brand.Trim(), @"^\s*\d+\s*-\s*", string.Empty);
+        return cleaned.Trim();
     }
 
     private async Task<AiSelection?> TrySelectWithAiAsync(
@@ -848,9 +1522,13 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
 
     private sealed record PriceValues(decimal? ListPrice, decimal? PromoPrice);
     private sealed record SearchResult(bool Success, List<SearchHit> Hits);
+    private sealed record SearchPagedResult(bool Success, int? Total, List<SearchHit> Hits);
     private sealed record SelectionResult(SearchHit Product, double Score, string Method);
     private sealed record CandidateResult(SearchHit? Product, double Score);
     private sealed record AiSelection(SearchHit Product, double Confidence);
+    private sealed record CatalogSelectionResult(CompetitorDb.CompetitorCatalogRow Product, double Score, string Method);
+    private sealed record CatalogCandidateResult(CompetitorDb.CompetitorCatalogRow Product, double Score);
+    private sealed record CatalogAiSelection(CompetitorDb.CompetitorCatalogRow Product, double Confidence);
 
     private enum MatchOutcome
     {
@@ -868,6 +1546,7 @@ public sealed class CruzVerdeAdapter : CompetitorAdapterBase
     }
 
     private sealed record SearchResponse(
+        [property: JsonPropertyName("total")] int? Total,
         [property: JsonPropertyName("hits")] List<SearchHit>? Hits
     );
 

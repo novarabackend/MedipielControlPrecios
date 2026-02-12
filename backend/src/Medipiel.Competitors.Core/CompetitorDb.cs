@@ -72,6 +72,32 @@ WHERE {(requireEan ? "p.Ean IS NOT NULL" : "1=1")}
         return list;
     }
 
+    public async Task<List<string>> LoadBrandNamesAsync(CancellationToken ct)
+    {
+        const string sql = @"
+SELECT Name
+FROM Brands
+WHERE Name IS NOT NULL AND LTRIM(RTRIM(Name)) <> ''
+ORDER BY Name;
+";
+
+        var list = new List<string>();
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new SqlCommand(sql, connection);
+
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            if (!reader.IsDBNull(0))
+            {
+                list.Add(reader.GetString(0));
+            }
+        }
+
+        return list;
+    }
+
     public async Task<bool> UpsertCompetitorProductAsync(
         int productId,
         int competitorId,
