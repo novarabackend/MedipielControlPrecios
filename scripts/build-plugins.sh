@@ -21,6 +21,6 @@ publish_plugin "Medipiel.Competitors.LineaEstetica" "LineaEstetica"
 publish_plugin "Medipiel.Competitors.BellaPiel" "BellaPiel"
 publish_plugin "Medipiel.Competitors.Farmatodo" "Farmatodo"
 publish_plugin "Medipiel.Competitors.CruzVerde" "CruzVerde"
+publish_plugin "Medipiel.Competitors.Medipiel" "Medipiel"
 
 echo "OK: plugins published under $PLUGINS_DIR/"
-
