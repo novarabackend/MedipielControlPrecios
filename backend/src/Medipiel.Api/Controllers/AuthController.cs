@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,6 +7,7 @@ using System.Text.Json;
 namespace Medipiel.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
@@ -151,4 +153,3 @@ public sealed class OtpOptions
     public string LoginUrl { get; set; } = string.Empty;
     public string OtpUrl { get; set; } = string.Empty;
 }
-
