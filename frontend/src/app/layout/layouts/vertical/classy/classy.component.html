@@ -21,36 +21,6 @@
                 <user [showAvatar]="false"></user>
             </div>
         </div>
-        <!-- User -->
-        <div class="flex w-full flex-col items-center p-4">
-            <div class="relative h-24 w-24">
-                @if (user?.avatar) {
-                    <img
-                        class="h-full w-full rounded-full"
-                        [src]="user.avatar"
-                        alt="User avatar"
-                    />
-                }
-                @if (!user?.avatar) {
-                    <mat-icon
-                        class="icon-size-24"
-                        [svgIcon]="'heroicons_solid:user-circle'"
-                    ></mat-icon>
-                }
-            </div>
-            <div class="mt-6 flex w-full flex-col items-center justify-center">
-                <div
-                    class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center font-medium leading-normal"
-                >
-                    {{ user?.name ?? '' }}
-                </div>
-                <div
-                    class="text-secondary mt-0.5 w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-md font-medium leading-normal"
-                >
-                    {{ user?.email ?? '' }}
-                </div>
-            </div>
-        </div>
     </ng-container>
     <!-- Navigation footer hook -->
     <ng-container fuseVerticalNavigationContentFooter>
