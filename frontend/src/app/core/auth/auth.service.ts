@@ -2,7 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
-import { catchError, Observable, of, switchMap, throwError } from 'rxjs';
+import { Observable, of, switchMap, throwError } from 'rxjs';
+
+const API_BASE = 'http://localhost:5000/api';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -30,25 +32,32 @@ export class AuthService {
     // -----------------------------------------------------------------------------------------------------
 
     /**
-     * Forgot password
+     * Request OTP code to be sent to the email.
      *
      * @param email
      */
-    forgotPassword(email: string): Observable<any> {
-        return this._httpClient.post('api/auth/forgot-password', email);
+    requestOtp(email: string): Observable<any> {
+        return this._httpClient.post(`${API_BASE}/auth/otp`, { email });
     }
 
     /**
-     * Reset password
-     *
-     * @param password
+     * Compatibility method used by template modules.
+     * Internally maps to OTP request.
+     */
+    forgotPassword(email: string): Observable<any> {
+        return this.requestOtp(email);
+    }
+
+    /**
+     * Compatibility method used by template modules.
+     * Not used in OTP flow.
      */
     resetPassword(password: string): Observable<any> {
-        return this._httpClient.post('api/auth/reset-password', password);
+        return of({ success: true });
     }
 
     /**
-     * Sign in
+     * Sign in (OTP-only). The "password" field is treated as the OTP code.
      *
      * @param credentials
      */
@@ -58,16 +67,24 @@ export class AuthService {
             return throwError('User is already logged in.');
         }
 
-        return this._httpClient.post('api/auth/sign-in', credentials).pipe(
+        return this._httpClient.post(`${API_BASE}/auth/sign-in`, credentials).pipe(
             switchMap((response: any) => {
                 // Store the access token in the local storage
-                this.accessToken = response.accessToken;
+                this.accessToken = response.accessToken ?? '';
+                if (response.refreshToken) {
+                    localStorage.setItem('refreshToken', response.refreshToken);
+                }
 
                 // Set the authenticated flag to true
                 this._authenticated = true;
 
                 // Store the user on the user service
-                this._userService.user = response.user;
+                this._userService.user = {
+                    id: credentials.email,
+                    name: credentials.email.split('@')[0] ?? credentials.email,
+                    email: credentials.email,
+                    status: 'online',
+                };
 
                 // Return a new observable with the response
                 return of(response);
@@ -79,38 +96,26 @@ export class AuthService {
      * Sign in using the access token
      */
     signInUsingToken(): Observable<any> {
-        // Sign in using the token
-        return this._httpClient
-            .post('api/auth/sign-in-with-token', {
-                accessToken: this.accessToken,
-            })
-            .pipe(
-                catchError(() =>
-                    // Return false
-                    of(false)
-                ),
-                switchMap((response: any) => {
-                    // Replace the access token with the new one if it's available on
-                    // the response object.
-                    //
-                    // This is an added optional step for better security. Once you sign
-                    // in using the token, you should generate a new one on the server
-                    // side and attach it to the response object. Then the following
-                    // piece of code can replace the token with the refreshed one.
-                    if (response.accessToken) {
-                        this.accessToken = response.accessToken;
-                    }
+        if (!this.accessToken || AuthUtils.isTokenExpired(this.accessToken)) {
+            return of(false);
+        }
 
-                    // Set the authenticated flag to true
-                    this._authenticated = true;
+        const claims = this._tryDecodeJwt(this.accessToken);
+        const email =
+            (claims?.email as string | undefined) ||
+            (claims?.preferred_username as string | undefined) ||
+            (claims?.upn as string | undefined) ||
+            '';
 
-                    // Store the user on the user service
-                    this._userService.user = response.user;
+        this._authenticated = true;
+        this._userService.user = {
+            id: email || 'user',
+            name: email ? email.split('@')[0] : 'Usuario',
+            email: email,
+            status: 'online',
+        };
 
-                    // Return true
-                    return of(true);
-                })
-            );
+        return of(true);
     }
 
     /**
@@ -119,6 +124,7 @@ export class AuthService {
     signOut(): Observable<any> {
         // Remove the access token from the local storage
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
 
         // Set the authenticated flag to false
         this._authenticated = false;
@@ -174,5 +180,25 @@ export class AuthService {
 
         // If the access token exists, and it didn't expire, sign in using it
         return this.signInUsingToken();
+    }
+
+    private _tryDecodeJwt(token: string): any | null {
+        try {
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                return null;
+            }
+
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+                atob(base64)
+                    .split('')
+                    .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                    .join('')
+            );
+            return JSON.parse(jsonPayload);
+        } catch {
+            return null;
+        }
     }
 }

@@ -1,5 +1,6 @@
 using Medipiel.Api.Data;
 using Medipiel.Api.Services;
+using Medipiel.Api.Controllers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("default", policy =>
@@ -14,6 +16,8 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
     });
 });
+
+builder.Services.Configure<OtpOptions>(builder.Configuration.GetSection("Otp"));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

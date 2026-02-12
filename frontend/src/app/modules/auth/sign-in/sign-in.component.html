@@ -14,15 +14,7 @@
             <div
                 class="mt-8 text-4xl font-extrabold leading-tight tracking-tight"
             >
-                Sign in
-            </div>
-            <div class="mt-0.5 flex items-baseline font-medium">
-                <div>Don't have an account?</div>
-                <a
-                    class="ml-1 text-primary-500 hover:underline"
-                    [routerLink]="['/sign-up']"
-                    >Sign up
-                </a>
+                Ingresar
             </div>
 
             <!-- Alert -->
@@ -32,8 +24,7 @@
                 [showIcon]="false"
                 [type]="'info'"
             >
-                Acceso de prueba. La autenticacion se integrara con Keycloak
-                (OTP) en una fase posterior.
+                Acceso por codigo OTP enviado al correo.
             </fuse-alert>
 
             <!-- Alert -->
@@ -53,71 +44,57 @@
             <form class="mt-8" [formGroup]="signInForm" #signInNgForm="ngForm">
                 <!-- Email field -->
                 <mat-form-field class="w-full">
-                    <mat-label>Email address</mat-label>
-                    <input id="email" matInput [formControlName]="'email'" />
+                    <mat-label>Correo electronico</mat-label>
+                    <input
+                        id="email"
+                        matInput
+                        [formControlName]="'email'"
+                        [readonly]="step === 'code'"
+                    />
                     @if (signInForm.get('email').hasError('required')) {
-                        <mat-error> Email address is required </mat-error>
+                        <mat-error> El correo es requerido </mat-error>
                     }
                     @if (signInForm.get('email').hasError('email')) {
                         <mat-error>
-                            Please enter a valid email address
+                            Ingresa un correo valido
                         </mat-error>
                     }
                 </mat-form-field>
 
-                <!-- Password field -->
-                <mat-form-field class="w-full">
-                    <mat-label>Password</mat-label>
-                    <input
-                        id="password"
-                        matInput
-                        type="password"
-                        [formControlName]="'password'"
-                        #passwordField
-                    />
-                    <button
-                        mat-icon-button
-                        type="button"
-                        (click)="
-                            passwordField.type === 'password'
-                                ? (passwordField.type = 'text')
-                                : (passwordField.type = 'password')
-                        "
-                        matSuffix
-                    >
-                        @if (passwordField.type === 'password') {
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="'heroicons_solid:eye'"
-                            ></mat-icon>
+                @if (step === 'code') {
+                    <!-- OTP code field -->
+                    <mat-form-field class="w-full">
+                        <mat-label>Codigo OTP</mat-label>
+                        <input
+                            id="code"
+                            matInput
+                            [formControlName]="'code'"
+                            autocomplete="one-time-code"
+                        />
+                        @if (signInForm.get('code').hasError('required')) {
+                            <mat-error> El codigo es requerido </mat-error>
                         }
-                        @if (passwordField.type === 'text') {
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="'heroicons_solid:eye-slash'"
-                            ></mat-icon>
-                        }
-                    </button>
-                    <mat-error> Password is required </mat-error>
-                </mat-form-field>
+                    </mat-form-field>
 
-                <!-- Actions -->
-                <div
-                    class="mt-1.5 inline-flex w-full items-center justify-between"
-                >
-                    <mat-checkbox
-                        class="-ml-2"
-                        [color]="'primary'"
-                        [formControlName]="'rememberMe'"
+                    <div
+                        class="mt-1.5 inline-flex w-full items-center justify-between"
                     >
-                        Remember me
-                    </mat-checkbox>
-                    <a
-                        class="text-md font-medium text-primary-500 hover:underline"
-                        [routerLink]="['/forgot-password']"
-                        >Forgot password?
-                    </a>
-                </div>
+                        <button
+                            type="button"
+                            class="text-md font-medium text-primary-500 hover:underline"
+                            (click)="backToEmail()"
+                        >
+                            Cambiar correo
+                        </button>
+                        <button
+                            type="button"
+                            class="text-md font-medium text-primary-500 hover:underline"
+                            (click)="sendOtp()"
+                        >
+                            Reenviar codigo
+                        </button>
+                    </div>
+                }
 
                 <!-- Submit button -->
                 <button
@@ -125,10 +102,12 @@
                     mat-flat-button
                     [color]="'primary'"
                     [disabled]="signInForm.disabled"
-                    (click)="signIn()"
+                    (click)="step === 'email' ? sendOtp() : verifyOtp()"
                 >
                     @if (!signInForm.disabled) {
-                        <span> Sign in </span>
+                        <span>
+                            {{ step === 'email' ? 'Enviar codigo' : 'Ingresar' }}
+                        </span>
                     }
                     @if (signInForm.disabled) {
                         <mat-progress-spinner
@@ -137,35 +116,6 @@
                         ></mat-progress-spinner>
                     }
                 </button>
-
-                <!-- Separator -->
-                <div class="mt-8 flex items-center">
-                    <div class="mt-px flex-auto border-t"></div>
-                    <div class="text-secondary mx-2">Or continue with</div>
-                    <div class="mt-px flex-auto border-t"></div>
-                </div>
-
-                <!-- Single sign-on buttons -->
-                <div class="mt-8 flex items-center space-x-4">
-                    <button class="flex-auto" type="button" mat-stroked-button>
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'feather:facebook'"
-                        ></mat-icon>
-                    </button>
-                    <button class="flex-auto" type="button" mat-stroked-button>
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'feather:twitter'"
-                        ></mat-icon>
-                    </button>
-                    <button class="flex-auto" type="button" mat-stroked-button>
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'feather:github'"
-                        ></mat-icon>
-                    </button>
-                </div>
             </form>
         </div>
     </div>
@@ -196,8 +146,8 @@
         <!-- Content -->
         <div class="relative z-10 w-full max-w-2xl">
             <div class="text-7xl font-bold leading-none text-gray-100">
-                <div>Welcome to</div>
-                <div>our community</div>
+                <div>Medipiel</div>
+                <div>Control de Precios</div>
             </div>
             <div class="mt-6 text-lg leading-6 tracking-tight text-gray-400">
                 Medipiel Precios centraliza el monitoreo de precios de
@@ -223,7 +173,7 @@
                     />
                 </div>
                 <div class="ml-4 font-medium tracking-tight text-gray-400">
-                    More than 17k people joined us, it's your turn
+                    Control diario. Alertas en dashboard. Reportes en Excel.
                 </div>
             </div>
         </div>

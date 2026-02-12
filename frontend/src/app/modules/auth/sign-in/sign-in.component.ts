@@ -8,12 +8,10 @@ import {
     Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
@@ -24,15 +22,12 @@ import { AuthService } from 'app/core/auth/auth.service';
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
     imports: [
-        RouterLink,
         FuseAlertComponent,
         FormsModule,
         ReactiveFormsModule,
         MatFormFieldModule,
         MatInputModule,
         MatButtonModule,
-        MatIconModule,
-        MatCheckboxModule,
         MatProgressSpinnerModule,
     ],
 })
@@ -45,6 +40,7 @@ export class AuthSignInComponent implements OnInit {
     };
     signInForm: UntypedFormGroup;
     showAlert: boolean = false;
+    step: 'email' | 'code' = 'email';
 
     /**
      * Constructor
@@ -66,12 +62,8 @@ export class AuthSignInComponent implements OnInit {
     ngOnInit(): void {
         // Create the form
         this.signInForm = this._formBuilder.group({
-            email: [
-                'hughes.brian@company.com',
-                [Validators.required, Validators.email],
-            ],
-            password: ['admin', Validators.required],
-            rememberMe: [''],
+            email: ['', [Validators.required, Validators.email]],
+            code: [''],
         });
     }
 
@@ -80,11 +72,11 @@ export class AuthSignInComponent implements OnInit {
     // -----------------------------------------------------------------------------------------------------
 
     /**
-     * Sign in
+     * Send OTP
      */
-    signIn(): void {
+    sendOtp(): void {
         // Return if the form is invalid
-        if (this.signInForm.invalid) {
+        if (this.signInForm.get('email')?.invalid) {
             return;
         }
 
@@ -94,37 +86,92 @@ export class AuthSignInComponent implements OnInit {
         // Hide the alert
         this.showAlert = false;
 
-        // Sign in
-        this._authService.signIn(this.signInForm.value).subscribe(
-            () => {
-                // Set the redirect url.
-                // The '/signed-in-redirect' is a dummy url to catch the request and redirect the user
-                // to the correct page after a successful sign in. This way, that url can be set via
-                // routing file and we don't have to touch here.
-                const redirectURL =
-                    this._activatedRoute.snapshot.queryParamMap.get(
-                        'redirectURL'
-                    ) || '/signed-in-redirect';
+        const email = (this.signInForm.get('email')?.value as string).trim();
 
-                // Navigate to the redirect url
-                this._router.navigateByUrl(redirectURL);
+        this._authService.requestOtp(email).subscribe(
+            () => {
+                this.step = 'code';
+                this.signInForm.enable();
+                this.signInForm.get('code')?.setValidators([Validators.required]);
+                this.signInForm.get('code')?.updateValueAndValidity();
+
+                this.alert = {
+                    type: 'success',
+                    message:
+                        'Te enviamos un codigo de acceso. Revisa tu correo y pegalo aqui.',
+                };
+                this.showAlert = true;
             },
             (response) => {
                 // Re-enable the form
                 this.signInForm.enable();
 
-                // Reset the form
-                this.signInNgForm.resetForm();
-
                 // Set the alert
                 this.alert = {
                     type: 'error',
-                    message: 'Wrong email or password',
+                    message:
+                        response?.error?.message ||
+                        'No se pudo enviar el codigo. Intenta de nuevo.',
                 };
 
                 // Show the alert
                 this.showAlert = true;
             }
         );
+    }
+
+    /**
+     * Verify OTP and sign in
+     */
+    verifyOtp(): void {
+        if (this.signInForm.get('email')?.invalid) {
+            return;
+        }
+
+        if (this.signInForm.get('code')?.invalid) {
+            return;
+        }
+
+        const email = (this.signInForm.get('email')?.value as string).trim();
+        const code = (this.signInForm.get('code')?.value as string).trim();
+
+        // Disable the form
+        this.signInForm.disable();
+
+        // Hide the alert
+        this.showAlert = false;
+
+        this._authService.signIn({ email, password: code }).subscribe(
+            () => {
+                const redirectURL =
+                    this._activatedRoute.snapshot.queryParamMap.get(
+                        'redirectURL'
+                    ) || '/signed-in-redirect';
+
+                this._router.navigateByUrl(redirectURL);
+            },
+            (response) => {
+                // Re-enable the form
+                this.signInForm.enable();
+
+                // Set the alert
+                this.alert = {
+                    type: 'error',
+                    message:
+                        response?.error?.message ||
+                        'Codigo invalido o expirado.',
+                };
+
+                // Show the alert
+                this.showAlert = true;
+            }
+        );
+    }
+
+    backToEmail(): void {
+        this.step = 'email';
+        this.signInForm.get('code')?.setValue('');
+        this.signInForm.get('code')?.clearValidators();
+        this.signInForm.get('code')?.updateValueAndValidity();
     }
 }
