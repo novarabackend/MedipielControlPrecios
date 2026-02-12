@@ -15,7 +15,7 @@ FRONTEND_LOG_FILE="$LOG_DIR/frontend-4300.log"
 FRONTEND_SCREEN_SESSION="medipiel-frontend-4300"
 
 FRONTEND_PORT="4300"
-API_URL="http://127.0.0.1:5000/api/scheduler/status"
+API_URL="http://127.0.0.1:5000/health"
 FRONTEND_URL="http://127.0.0.1:${FRONTEND_PORT}/"
 
 usage() {

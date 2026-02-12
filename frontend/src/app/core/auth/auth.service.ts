@@ -260,10 +260,28 @@ export class AuthService {
         }
 
         const roles = this._extractRoles(claims);
+        const displayName =
+            typeof claims?.name === 'string' ? claims.name.trim() : '';
+        if (displayName) {
+            roles.push(displayName);
+        }
+
+        const givenName =
+            typeof claims?.given_name === 'string'
+                ? claims.given_name.trim()
+                : '';
+        const familyName =
+            typeof claims?.family_name === 'string'
+                ? claims.family_name.trim()
+                : '';
+        if (givenName && familyName) {
+            roles.push(`${givenName} ${familyName}`);
+        }
+
         return {
             allowed: this._hasAllowedRole(roles),
             claims,
-            roles,
+            roles: Array.from(new Set(roles)),
         };
     }
 
@@ -271,53 +289,33 @@ export class AuthService {
         const values = [
             claims?.role,
             claims?.roles,
+            claims?.['realm_access.roles'],
+            claims?.['resource_access.roles'],
             claims?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
             claims?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'],
+            claims?.realm_access?.roles,
         ];
+
+        if (claims?.resource_access && typeof claims.resource_access === 'object') {
+            for (const resource of Object.values(claims.resource_access)) {
+                if (resource && typeof resource === 'object') {
+                    values.push((resource as any).roles);
+                }
+            }
+        }
+
+        if (claims && typeof claims === 'object') {
+            for (const [key, value] of Object.entries(claims)) {
+                if (key.toLowerCase().endsWith('.roles')) {
+                    values.push(value);
+                }
+            }
+        }
 
         const roles: string[] = [];
 
         for (const value of values) {
-            if (Array.isArray(value)) {
-                for (const item of value) {
-                    if (typeof item === 'string' && item.trim().length > 0) {
-                        roles.push(item.trim());
-                    }
-                }
-                continue;
-            }
-
-            if (typeof value !== 'string') {
-                continue;
-            }
-
-            const raw = value.trim();
-            if (!raw) {
-                continue;
-            }
-
-            if (raw.startsWith('[') && raw.endsWith(']')) {
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed)) {
-                        for (const item of parsed) {
-                            if (typeof item === 'string' && item.trim().length > 0) {
-                                roles.push(item.trim());
-                            }
-                        }
-                        continue;
-                    }
-                } catch {
-                    // Continue with delimiter parsing.
-                }
-            }
-
-            const split = raw
-                .split(/[;,]/g)
-                .map((s) => s.trim())
-                .filter((s) => s.length > 0);
-
-            roles.push(...split);
+            this._appendRoleValue(value, roles);
         }
 
         return Array.from(new Set(roles));
@@ -328,8 +326,71 @@ export class AuthService {
             return false;
         }
 
+        const allowed = ALLOWED_ROLES.map((role) => this._normalizeRole(role));
         return roles.some((role) =>
-            ALLOWED_ROLES.includes(role.trim().toLowerCase())
+            allowed.includes(this._normalizeRole(role))
         );
+    }
+
+    private _appendRoleValue(value: any, roles: string[]): void {
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                this._appendRoleValue(item, roles);
+            }
+            return;
+        }
+
+        if (value && typeof value === 'object') {
+            for (const [key, nested] of Object.entries(value)) {
+                if (
+                    key.toLowerCase() === 'roles' ||
+                    key.toLowerCase().endsWith('.roles') ||
+                    (nested && typeof nested === 'object')
+                ) {
+                    this._appendRoleValue(nested, roles);
+                }
+            }
+            return;
+        }
+
+        if (typeof value !== 'string') {
+            return;
+        }
+
+        const raw = value.trim();
+        if (!raw) {
+            return;
+        }
+
+        if (
+            (raw.startsWith('[') && raw.endsWith(']')) ||
+            (raw.startsWith('{') && raw.endsWith('}'))
+        ) {
+            try {
+                const parsed = JSON.parse(raw);
+                this._appendRoleValue(parsed, roles);
+                return;
+            } catch {
+                // Continue with delimiter parsing.
+            }
+        }
+
+        const split = raw
+            .split(/[;,]/g)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+
+        roles.push(...split);
+    }
+
+    private _normalizeRole(role: string): string {
+        if (!role) {
+            return '';
+        }
+
+        return role
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
     }
 }

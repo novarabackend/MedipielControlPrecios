@@ -2,6 +2,7 @@ using Medipiel.Api.Data;
 using Medipiel.Api.Services;
 using Medipiel.Api.Controllers;
 using Medipiel.Api.Security;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -26,6 +27,7 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.UseSecurityTokenValidators = true;
         options.RequireHttpsMetadata = false;
         options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -37,6 +39,7 @@ builder.Services
             RequireExpirationTime = true,
             RequireSignedTokens = false,
             ClockSkew = TimeSpan.FromMinutes(1),
+            SignatureValidator = (token, _) => new JwtSecurityToken(token),
         };
     });
 
