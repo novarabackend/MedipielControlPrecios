@@ -56,6 +56,26 @@ table {
     }
 }
 
+.snapshot-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+}
+
+.snapshot-table thead tr:first-child th {
+    top: 0;
+    z-index: 6;
+}
+
+.snapshot-table thead tr:nth-child(2) th {
+    top: 44px;
+    z-index: 5;
+}
+
+.snapshot-table thead .sticky-col {
+    z-index: 7;
+}
+
 .competitor-group {
     text-align: center;
     font-weight: 700;
