@@ -81,6 +81,7 @@ export class SnapshotsHistoryComponent {
     readonly reportTo = signal('');
     readonly exporting = signal(false);
     readonly exportError = signal('');
+    readonly filterSku = signal('');
     readonly filterEan = signal('');
     readonly filterName = signal('');
     readonly filterBrandId = signal<number | null>(null);
@@ -163,6 +164,7 @@ export class SnapshotsHistoryComponent {
         })
     );
     readonly filteredRowsView = computed<SnapshotRowView[]>(() => {
+        const skuFilter = this.normalize(this.filterSku());
         const eanFilter = this.normalize(this.filterEan());
         const nameFilter = this.normalize(this.filterName());
         const brandIdFilter = this.filterBrandId();
@@ -173,6 +175,10 @@ export class SnapshotsHistoryComponent {
         const statusFilter = this.filterStatus();
 
         return this.rowsView().filter((row) => {
+            if (skuFilter && !this.normalize(row.sku ?? '').includes(skuFilter)) {
+                return false;
+            }
+
             if (eanFilter && !this.normalize(row.ean ?? '').includes(eanFilter)) {
                 return false;
             }
@@ -304,6 +310,7 @@ export class SnapshotsHistoryComponent {
     }
 
     resetFilters(): void {
+        this.filterSku.set('');
         this.filterEan.set('');
         this.filterName.set('');
         this.filterBrandId.set(null);

@@ -87,6 +87,16 @@
 
         <div class="mt-4 grid gap-4 lg:grid-cols-7">
             <mat-form-field class="w-full">
+                <mat-label>SKU</mat-label>
+                <input
+                    matInput
+                    placeholder="Buscar por SKU"
+                    [value]="filterSku()"
+                    (input)="filterSku.set($any($event.target).value)"
+                />
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
                 <mat-label>EAN</mat-label>
                 <input
                     matInput
