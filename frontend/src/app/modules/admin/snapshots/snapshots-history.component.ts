@@ -20,6 +20,7 @@ import {
     PriceSnapshotsService,
     CompetitorInfo,
 } from 'app/core/price-snapshots/price-snapshots.service';
+import { resolveBaselineCompetitorId } from 'app/core/competitors/competitor-utils';
 import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
 import { MasterItem, MastersService } from 'app/core/masters/masters.service';
 import { ReportsService } from 'app/core/reports/reports.service';
@@ -91,6 +92,9 @@ export class SnapshotsHistoryComponent {
     readonly competitors = computed<CompetitorInfo[]>(
         () => this.data()?.competitors ?? []
     );
+    readonly baselineCompetitorId = computed<number | null>(() =>
+        resolveBaselineCompetitorId(this.competitors())
+    );
     readonly rows = computed<SnapshotRow[]>(() => this.data()?.rows ?? []);
     readonly rowsView = computed<SnapshotRowView[]>(() =>
         this.rows().map((row) => {
@@ -101,8 +105,10 @@ export class SnapshotsHistoryComponent {
                 pricesByCompetitor[price.competitorId] = price;
             }
 
-            const baseListPrice = row.medipielListPrice ?? null;
-            const basePromoPrice = row.medipielPromoPrice ?? null;
+            const baseline = this.baselineCompetitorId();
+            const baselinePrice = baseline ? pricesByCompetitor[baseline] : undefined;
+            const baseListPrice = baselinePrice?.listPrice ?? null;
+            const basePromoPrice = baselinePrice?.promoPrice ?? null;
 
             for (const competitor of this.competitors()) {
                 const price = pricesByCompetitor[competitor.id];

@@ -48,7 +48,7 @@ public class PriceSnapshotsController : ControllerBase
             .ToListAsync(ct);
 
         var orderedCompetitors = competitors
-            .OrderBy(x => ResolveOrder(x.Name))
+            .OrderBy(x => ResolveOrder(x.AdapterId, x.Name))
             .ThenBy(x => x.Name)
             .Select(x => new CompetitorInfo(x.Id, x.Name, ResolveColor(x.Name)))
             .ToList();
@@ -179,8 +179,14 @@ public class PriceSnapshotsController : ControllerBase
         return null;
     }
 
-    private static int ResolveOrder(string name)
+    private static int ResolveOrder(string? adapterId, string name)
     {
+        if (!string.IsNullOrWhiteSpace(adapterId) &&
+            adapterId.Trim().Equals("medipiel", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
         if (string.IsNullOrWhiteSpace(name))
         {
             return 999;

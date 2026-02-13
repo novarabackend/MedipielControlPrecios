@@ -20,6 +20,7 @@ import {
     SnapshotRow,
     PriceSnapshotsService,
 } from 'app/core/price-snapshots/price-snapshots.service';
+import { resolveBaselineCompetitorId } from 'app/core/competitors/competitor-utils';
 import {
     ImportSummary,
     ProductImportItem,
@@ -141,6 +142,9 @@ export class ProductsComponent {
     readonly competitors = computed<SnapshotCompetitor[]>(
         () => this.snapshotData()?.competitors ?? []
     );
+    readonly baselineCompetitorId = computed<number | null>(() =>
+        resolveBaselineCompetitorId(this.competitors())
+    );
     readonly snapshotDate = computed(() => this.snapshotData()?.snapshotDate ?? '—');
 
     readonly snapshotRowsByProductId = computed(() => {
@@ -247,10 +251,17 @@ export class ProductsComponent {
     readonly hoverCompetitors = computed(() => {
         const competitorId = this.filterCompetitor();
         const list = this.competitors();
+        const baseline = this.baselineCompetitorId();
         if (competitorId) {
+            if (baseline && competitorId === baseline) {
+                return [];
+            }
             return list.filter((item) => item.id === competitorId);
         }
-        return list.slice(0, 2);
+        const withoutBaseline = baseline
+            ? list.filter((item) => item.id !== baseline)
+            : list;
+        return withoutBaseline.slice(0, 2);
     });
 
     constructor() {
@@ -400,7 +411,10 @@ export class ProductsComponent {
             return false;
         }
 
-        const basePrice = item.medipielListPrice ?? null;
+        const baseline = this.baselineCompetitorId();
+        const basePrice = baseline
+            ? item.pricesByCompetitor[baseline]?.listPrice ?? null
+            : null;
         if (!basePrice) {
             return false;
         }

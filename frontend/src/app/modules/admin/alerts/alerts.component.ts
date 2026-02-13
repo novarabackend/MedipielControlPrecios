@@ -47,7 +47,11 @@ export class AlertsComponent {
         }
         return Array.from(map.entries())
             .map(([id, name]) => ({ id, name }))
-            .sort((a, b) => a.name.localeCompare(b.name));
+            .sort((a, b) => {
+                const orderDiff =
+                    this.getCompetitorOrder(a.name) - this.getCompetitorOrder(b.name);
+                return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
+            });
     });
 
     readonly filteredItems = computed(() => {
@@ -86,5 +90,25 @@ export class AlertsComponent {
                 next: (items) => this.items.set(items),
                 error: () => this.error.set('No se pudieron cargar las alertas.'),
             });
+    }
+
+    private getCompetitorOrder(name: string): number {
+        const normalized = (name ?? '').trim().toLowerCase();
+        if (normalized.includes('medipiel')) {
+            return 0;
+        }
+        if (normalized.includes('bella piel')) {
+            return 1;
+        }
+        if (normalized.includes('linea estetica')) {
+            return 2;
+        }
+        if (normalized.includes('farmatodo')) {
+            return 3;
+        }
+        if (normalized.includes('cruz verde')) {
+            return 4;
+        }
+        return 99;
     }
 }

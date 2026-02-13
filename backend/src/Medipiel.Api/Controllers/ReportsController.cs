@@ -45,8 +45,18 @@ public class ReportsController : ControllerBase
         var competitors = await _db.Competitors
             .AsNoTracking()
             .Where(x => x.IsActive)
-            .OrderBy(x => x.Id)
             .ToListAsync();
+
+        var orderedCompetitors = competitors
+            .OrderBy(x => ResolveOrder(x.AdapterId, x.Name))
+            .ThenBy(x => x.Name)
+            .ToList();
+
+        var baselineCompetitorId = orderedCompetitors
+            .FirstOrDefault(x =>
+                !string.IsNullOrWhiteSpace(x.AdapterId) &&
+                x.AdapterId.Trim().Equals("medipiel", StringComparison.OrdinalIgnoreCase))
+            ?.Id;
 
         var productsQuery =
             from p in _db.Products.AsNoTracking()
@@ -103,7 +113,7 @@ public class ReportsController : ControllerBase
             .ToListAsync();
 
         var productIdsAll = products.Select(x => x.Id).ToList();
-        var competitorIds = competitors.Select(x => x.Id).ToList();
+        var competitorIds = orderedCompetitors.Select(x => x.Id).ToList();
 
         var snapshots = await _db.PriceSnapshots.AsNoTracking()
             .Where(x =>
@@ -139,10 +149,11 @@ public class ReportsController : ControllerBase
         {
             return BuildLongReport(
                 products,
-                competitors,
+                orderedCompetitors,
                 dates,
                 snapshotMap,
                 competitorProductMap,
+                baselineCompetitorId,
                 fromDate,
                 toDate);
         }
@@ -179,7 +190,7 @@ public class ReportsController : ControllerBase
 
         var baseColCount = baseHeaders.Length;
         var competitorBlockSize = competitorHeaders.Length;
-        var totalColumnsPerDate = competitors.Count * competitorBlockSize;
+        var totalColumnsPerDate = orderedCompetitors.Count * competitorBlockSize;
 
         for (var i = 0; i < baseHeaders.Length; i++)
         {
@@ -196,7 +207,7 @@ public class ReportsController : ControllerBase
             sheet.Cell(1, dateStart).Value = date.ToString("dd/MM/yy");
             sheet.Range(1, dateStart, 1, dateEnd).Merge();
 
-            foreach (var competitor in competitors)
+            foreach (var competitor in orderedCompetitors)
             {
                 var compStart = currentCol;
                 var compEnd = compStart + competitorBlockSize - 1;
@@ -238,17 +249,29 @@ public class ReportsController : ControllerBase
             currentCol = baseColCount + 1;
             foreach (var date in dates)
             {
-                foreach (var competitor in competitors)
+                var baselineList = baselineCompetitorId.HasValue
+                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshot)
+                        ? baselineSnapshot.ListPrice
+                        : null
+                    : null;
+
+                var baselinePromo = baselineCompetitorId.HasValue
+                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshotPromo)
+                        ? baselineSnapshotPromo.PromoPrice
+                        : null
+                    : null;
+
+                foreach (var competitor in orderedCompetitors)
                 {
                     snapshotMap.TryGetValue((date, product.Id, competitor.Id), out var snapshot);
                     competitorProductMap.TryGetValue((product.Id, competitor.Id), out var cp);
 
                     var listPrice = snapshot?.ListPrice;
                     var promoPrice = snapshot?.PromoPrice;
-                    var diffList = ComputeDiff(listPrice, product.MedipielListPrice);
-                    var diffListPercent = ComputeDiffPercent(listPrice, product.MedipielListPrice);
-                    var diffPromo = ComputeDiff(promoPrice, product.MedipielPromoPrice);
-                    var diffPromoPercent = ComputeDiffPercent(promoPrice, product.MedipielPromoPrice);
+                    var diffList = ComputeDiff(listPrice, baselineList);
+                    var diffListPercent = ComputeDiffPercent(listPrice, baselineList);
+                    var diffPromo = ComputeDiff(promoPrice, baselinePromo);
+                    var diffPromoPercent = ComputeDiffPercent(promoPrice, baselinePromo);
 
                     sheet.Cell(rowIndex, currentCol + 0).Value = listPrice;
                     sheet.Cell(rowIndex, currentCol + 1).Value = promoPrice;
@@ -274,7 +297,7 @@ public class ReportsController : ControllerBase
         var startCol = baseColCount + 1;
         for (var dateIndex = 0; dateIndex < dates.Count; dateIndex++)
         {
-            for (var competitorIndex = 0; competitorIndex < competitors.Count; competitorIndex++)
+            for (var competitorIndex = 0; competitorIndex < orderedCompetitors.Count; competitorIndex++)
             {
                 var blockStart = startCol + (dateIndex * totalColumnsPerDate) + (competitorIndex * competitorBlockSize);
                 moneyColumns.Add(blockStart + 0);
@@ -318,6 +341,7 @@ public class ReportsController : ControllerBase
         List<DateOnly> dates,
         Dictionary<(DateOnly, int, int), Models.PriceSnapshot> snapshotMap,
         Dictionary<(int, int), Models.CompetitorProduct> competitorProductMap,
+        int? baselineCompetitorId,
         DateOnly fromDate,
         DateOnly toDate)
     {
@@ -383,6 +407,18 @@ public class ReportsController : ControllerBase
                 sheet.Cell(rowIndex, 9).Value = product.MedipielPromoPrice;
                 sheet.Cell(rowIndex, 10).Value = product.MedipielListPrice;
 
+                var baselineList = baselineCompetitorId.HasValue
+                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshot)
+                        ? baselineSnapshot.ListPrice
+                        : null
+                    : null;
+
+                var baselinePromo = baselineCompetitorId.HasValue
+                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshotPromo)
+                        ? baselineSnapshotPromo.PromoPrice
+                        : null
+                    : null;
+
                 var currentCol = baseHeaders.Length + 2;
                 foreach (var competitor in competitors)
                 {
@@ -391,10 +427,10 @@ public class ReportsController : ControllerBase
 
                     var listPrice = snapshot?.ListPrice;
                     var promoPrice = snapshot?.PromoPrice;
-                    var diffList = ComputeDiff(listPrice, product.MedipielListPrice);
-                    var diffListPercent = ComputeDiffPercent(listPrice, product.MedipielListPrice);
-                    var diffPromo = ComputeDiff(promoPrice, product.MedipielPromoPrice);
-                    var diffPromoPercent = ComputeDiffPercent(promoPrice, product.MedipielPromoPrice);
+                    var diffList = ComputeDiff(listPrice, baselineList);
+                    var diffListPercent = ComputeDiffPercent(listPrice, baselineList);
+                    var diffPromo = ComputeDiff(promoPrice, baselinePromo);
+                    var diffPromoPercent = ComputeDiffPercent(promoPrice, baselinePromo);
 
                     sheet.Cell(rowIndex, currentCol + 0).Value = listPrice;
                     sheet.Cell(rowIndex, currentCol + 1).Value = promoPrice;
@@ -507,6 +543,43 @@ public class ReportsController : ControllerBase
         }
 
         return (value.Value - baseValue.Value) / baseValue.Value;
+    }
+
+    private static int ResolveOrder(string? adapterId, string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(adapterId) &&
+            adapterId.Trim().Equals("medipiel", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return 999;
+        }
+
+        var normalized = name.Trim().ToLowerInvariant();
+        if (normalized.Contains("bella piel"))
+        {
+            return 1;
+        }
+
+        if (normalized.Contains("linea estetica"))
+        {
+            return 2;
+        }
+
+        if (normalized.Contains("farmatodo"))
+        {
+            return 3;
+        }
+
+        if (normalized.Contains("cruz verde"))
+        {
+            return 4;
+        }
+
+        return 99;
     }
 }
 

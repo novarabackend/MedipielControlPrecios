@@ -38,7 +38,10 @@ public sealed class CompetitorRunService
             query = query.Where(x => x.Id == competitorId.Value);
         }
 
-        var competitors = await query.ToListAsync(ct);
+        var competitors = (await query.ToListAsync(ct))
+            .OrderBy(x => ResolveOrder(x.AdapterId, x.Name))
+            .ThenBy(x => x.Name)
+            .ToList();
         var connectionName = _configuration.GetValue<string>("Adapters:ConnectionName") ?? "Default";
         var runDate = DateTime.Now;
 
@@ -141,11 +144,53 @@ public sealed class CompetitorRunService
         return summary;
     }
 
+    private static int ResolveOrder(string? adapterId, string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(adapterId) &&
+            adapterId.Trim().Equals("medipiel", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return 999;
+        }
+
+        var normalized = name.Trim().ToLowerInvariant();
+        if (normalized.Contains("bella piel"))
+        {
+            return 1;
+        }
+
+        if (normalized.Contains("linea estetica"))
+        {
+            return 2;
+        }
+
+        if (normalized.Contains("farmatodo"))
+        {
+            return 3;
+        }
+
+        if (normalized.Contains("cruz verde"))
+        {
+            return 4;
+        }
+
+        return 99;
+    }
+
     private async Task<int> GenerateAlertsAsync(int competitorId, DateTime runDate, CancellationToken ct)
     {
         var snapshotDate = DateOnly.FromDateTime(runDate);
         var dayStart = runDate.Date;
         var dayEnd = dayStart.AddDays(1);
+
+        var baselineCompetitorId = await _db.Competitors.AsNoTracking()
+            .Where(x => x.IsActive && x.AdapterId == "medipiel")
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync(ct);
 
         var rules = await _db.AlertRules.AsNoTracking()
             .Where(x => x.Active)
@@ -166,6 +211,26 @@ public sealed class CompetitorRunService
         if (snapshots.Count == 0)
         {
             return 0;
+        }
+
+        Dictionary<int, (decimal? ListPrice, decimal? PromoPrice)>? baselineByProductId = null;
+        if (baselineCompetitorId.HasValue && baselineCompetitorId.Value != competitorId)
+        {
+            var snapshotProductIds = snapshots
+                .Select(x => x.ProductId)
+                .Distinct()
+                .ToList();
+
+            var baselineSnapshots = await _db.PriceSnapshots.AsNoTracking()
+                .Where(x => x.CompetitorId == baselineCompetitorId.Value && x.SnapshotDate == snapshotDate)
+                .Where(x => snapshotProductIds.Contains(x.ProductId))
+                .Select(x => new { x.ProductId, x.ListPrice, x.PromoPrice })
+                .ToListAsync(ct);
+
+            baselineByProductId = baselineSnapshots.ToDictionary(
+                x => x.ProductId,
+                x => (x.ListPrice, x.PromoPrice)
+            );
         }
 
         var existing = await _db.Alerts.AsNoTracking()
@@ -189,12 +254,18 @@ public sealed class CompetitorRunService
                 continue;
             }
 
+            if (baselineByProductId is null ||
+                !baselineByProductId.TryGetValue(product.Id, out var baseline))
+            {
+                continue;
+            }
+
             if (rule.ListPriceThresholdPercent.HasValue &&
                 snapshot.ListPrice.HasValue &&
-                product.MedipielListPrice.HasValue &&
-                product.MedipielListPrice.Value > 0)
+                baseline.ListPrice.HasValue &&
+                baseline.ListPrice.Value > 0)
             {
-                var delta = ((snapshot.ListPrice.Value - product.MedipielListPrice.Value) / product.MedipielListPrice.Value) * 100m;
+                var delta = ((snapshot.ListPrice.Value - baseline.ListPrice.Value) / baseline.ListPrice.Value) * 100m;
                 if (Math.Abs(delta) >= rule.ListPriceThresholdPercent.Value)
                 {
                     var key = $"{product.Id}:list";
@@ -215,10 +286,10 @@ public sealed class CompetitorRunService
 
             if (rule.PromoPriceThresholdPercent.HasValue &&
                 snapshot.PromoPrice.HasValue &&
-                product.MedipielPromoPrice.HasValue &&
-                product.MedipielPromoPrice.Value > 0)
+                baseline.PromoPrice.HasValue &&
+                baseline.PromoPrice.Value > 0)
             {
-                var delta = ((snapshot.PromoPrice.Value - product.MedipielPromoPrice.Value) / product.MedipielPromoPrice.Value) * 100m;
+                var delta = ((snapshot.PromoPrice.Value - baseline.PromoPrice.Value) / baseline.PromoPrice.Value) * 100m;
                 if (Math.Abs(delta) >= rule.PromoPriceThresholdPercent.Value)
                 {
                     var key = $"{product.Id}:promo";

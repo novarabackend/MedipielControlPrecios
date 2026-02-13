@@ -22,6 +22,7 @@ import {
     SnapshotRow,
     CompetitorInfo,
 } from 'app/core/price-snapshots/price-snapshots.service';
+import { resolveBaselineCompetitorId } from 'app/core/competitors/competitor-utils';
 
 interface ProductRowView {
     id: number;
@@ -82,6 +83,9 @@ export class DashboardComponent {
     readonly snapshotDate = computed(() => this.snapshot()?.snapshotDate ?? '—');
     readonly competitors = computed<CompetitorInfo[]>(
         () => this.snapshot()?.competitors ?? []
+    );
+    readonly baselineCompetitorId = computed<number | null>(() =>
+        resolveBaselineCompetitorId(this.competitors())
     );
 
     readonly rowsView = computed<ProductRowView[]>(() => {
@@ -156,13 +160,19 @@ export class DashboardComponent {
     });
 
     readonly avgGapPercent = computed(() => {
+        const baseline = this.baselineCompetitorId();
         const values: number[] = [];
         for (const row of this.filteredRows()) {
-            const base = row.medipielListPrice;
+            const base = baseline
+                ? row.pricesByCompetitor[baseline]?.listPrice ?? null
+                : null;
             if (!base) {
                 continue;
             }
             for (const price of Object.values(row.pricesByCompetitor)) {
+                if (baseline && price.competitorId === baseline) {
+                    continue;
+                }
                 if (price.listPrice === null || price.listPrice === undefined) {
                     continue;
                 }
@@ -178,13 +188,20 @@ export class DashboardComponent {
     });
 
     readonly competitorSummaries = computed<CompetitorSummary[]>(() => {
+        const baseline = this.baselineCompetitorId();
         const rows = this.filteredRows();
-        return this.competitors().map((competitor) => {
+        const list = baseline
+            ? this.competitors().filter((item) => item.id !== baseline)
+            : this.competitors();
+
+        return list.map((competitor) => {
             const diffs: number[] = [];
             let higher = 0;
             let promos = 0;
             for (const row of rows) {
-                const base = row.medipielListPrice;
+                const base = baseline
+                    ? row.pricesByCompetitor[baseline]?.listPrice ?? null
+                    : null;
                 const price = row.pricesByCompetitor[competitor.id];
                 if (!price || base === null || base === undefined) {
                     continue;
@@ -220,9 +237,12 @@ export class DashboardComponent {
     });
 
     readonly alertsSummary = computed(() => {
+        const baseline = this.baselineCompetitorId();
         const rows = this.filteredRows();
         const gapProducts = rows.filter((row) => {
-            const base = row.medipielListPrice;
+            const base = baseline
+                ? row.pricesByCompetitor[baseline]?.listPrice ?? null
+                : null;
             if (!base) {
                 return false;
             }
@@ -231,6 +251,9 @@ export class DashboardComponent {
                 return false;
             }
             return Object.values(row.pricesByCompetitor).some((price) => {
+                if (baseline && price.competitorId === baseline) {
+                    return false;
+                }
                 if (price.listPrice === null || price.listPrice === undefined) {
                     return false;
                 }
@@ -341,28 +364,35 @@ export class DashboardComponent {
         );
 
         forkJoin(requests).subscribe((responses) => {
+            const baseline = this.baselineCompetitorId();
+            const chartCompetitors = baseline
+                ? this.competitors().filter((item) => item.id !== baseline)
+                : this.competitors();
+
             const competitorMap = new Map<number, CompetitorInfo>();
-            for (const competitor of this.competitors()) {
+            for (const competitor of chartCompetitors) {
                 competitorMap.set(competitor.id, competitor);
             }
 
             const seriesMap = new Map<number, Array<number | null>>();
-            for (const competitor of this.competitors()) {
+            for (const competitor of chartCompetitors) {
                 seriesMap.set(competitor.id, []);
             }
 
             for (const response of responses) {
                 if (!response) {
-                    for (const competitor of this.competitors()) {
+                    for (const competitor of chartCompetitors) {
                         seriesMap.get(competitor.id)?.push(null);
                     }
                     continue;
                 }
 
-                for (const competitor of this.competitors()) {
+                for (const competitor of chartCompetitors) {
                     const values: number[] = [];
                     for (const row of response.rows) {
-                        const base = row.medipielListPrice;
+                        const base = baseline
+                            ? row.prices.find((item) => item.competitorId === baseline)?.listPrice ?? null
+                            : null;
                         if (!base) {
                             continue;
                         }

@@ -22,6 +22,7 @@ import {
     ProductHistoryPrice,
     ProductsService,
 } from 'app/core/products/products.service';
+import { resolveBaselineCompetitorId } from 'app/core/competitors/competitor-utils';
 
 interface CompetitorDelta {
     amount: number | null;
@@ -86,8 +87,12 @@ export class ProductDetailComponent {
             latestByCompetitor.set(entry.competitorId, entry);
         }
 
-        const baseListPrice = data.product.medipielListPrice ?? null;
-        const basePromoPrice = data.product.medipielPromoPrice ?? null;
+        const baselineId = resolveBaselineCompetitorId(data.competitors);
+        const baselineLatest = baselineId
+            ? latestByCompetitor.get(baselineId) ?? null
+            : null;
+        const baseListPrice = baselineLatest?.listPrice ?? null;
+        const basePromoPrice = baselineLatest?.promoPrice ?? null;
 
         return data.competitors.map((competitor) => {
             const latest = latestByCompetitor.get(competitor.id) ?? null;

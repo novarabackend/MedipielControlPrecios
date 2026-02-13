@@ -39,7 +39,6 @@
                     <tr>
                         <th class="sticky-col" rowspan="2">Producto</th>
                         <th class="sticky-col" rowspan="2">EAN</th>
-                        <th class="competitor-group medipiel-group" colspan="2">Medipiel</th>
                         @for (competitor of competitors(); let i = $index; track competitor.id) {
                             <th
                                 class="competitor-group"
@@ -51,8 +50,6 @@
                         }
                     </tr>
                     <tr>
-                        <th class="competitor-sub medipiel-sub">Precio lista</th>
-                        <th class="competitor-sub medipiel-sub">Precio promo</th>
                         @for (competitor of competitors(); let i = $index; track competitor.id) {
                             <th
                                 class="competitor-sub"
@@ -86,20 +83,6 @@
                                 <div class="text-xs text-secondary">SKU: {{ row.sku ?? '—' }}</div>
                             </td>
                             <td class="sticky-col">{{ row.ean ?? '—' }}</td>
-                            <td class="medipiel-cell">
-                                @if (row.medipielListPrice !== null && row.medipielListPrice !== undefined) {
-                                    {{ row.medipielListPrice | number: '1.0-0' }}
-                                } @else {
-                                    —
-                                }
-                            </td>
-                            <td class="medipiel-cell">
-                                @if (row.medipielPromoPrice !== null && row.medipielPromoPrice !== undefined) {
-                                    {{ row.medipielPromoPrice | number: '1.0-0' }}
-                                } @else {
-                                    —
-                                }
-                            </td>
                             @for (competitor of competitors(); let i = $index; track competitor.id) {
                                 <td
                                     class="competitor-cell"

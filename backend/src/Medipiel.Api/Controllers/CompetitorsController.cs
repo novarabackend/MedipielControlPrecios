@@ -19,7 +19,10 @@ public class CompetitorsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var items = await _db.Competitors.OrderBy(x => x.Name).ToListAsync();
+        var items = (await _db.Competitors.ToListAsync())
+            .OrderBy(x => CompetitorOrdering.ResolveOrder(x.AdapterId, x.Name))
+            .ThenBy(x => x.Name)
+            .ToList();
         return Ok(items);
     }
 
@@ -67,3 +70,43 @@ public class CompetitorsController : ControllerBase
 }
 
 public sealed record CompetitorRequest(string Name, string? BaseUrl, string? AdapterId, bool? IsActive);
+
+static class CompetitorOrdering
+{
+    public static int ResolveOrder(string? adapterId, string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(adapterId) &&
+            adapterId.Trim().Equals("medipiel", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return 999;
+        }
+
+        var normalized = name.Trim().ToLowerInvariant();
+        if (normalized.Contains("bella piel"))
+        {
+            return 1;
+        }
+
+        if (normalized.Contains("linea estetica"))
+        {
+            return 2;
+        }
+
+        if (normalized.Contains("farmatodo"))
+        {
+            return 3;
+        }
+
+        if (normalized.Contains("cruz verde"))
+        {
+            return 4;
+        }
+
+        return 99;
+    }
+}

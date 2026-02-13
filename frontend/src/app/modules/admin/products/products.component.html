@@ -367,8 +367,13 @@
                                         <div class="hover-item">
                                             <span>Medipiel</span>
                                             <span>
-                                                @if (row.medipielListPrice !== null && row.medipielListPrice !== undefined) {
-                                                    {{ row.medipielListPrice | number: '1.0-0' }}
+                                                @if (baselineCompetitorId(); as baselineId) {
+                                                    @if (row.pricesByCompetitor[baselineId]?.listPrice !== null &&
+                                                    row.pricesByCompetitor[baselineId]?.listPrice !== undefined) {
+                                                        {{ row.pricesByCompetitor[baselineId]?.listPrice | number: '1.0-0' }}
+                                                    } @else {
+                                                        —
+                                                    }
                                                 } @else {
                                                     —
                                                 }
