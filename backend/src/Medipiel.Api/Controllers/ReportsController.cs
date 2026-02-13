@@ -348,8 +348,9 @@ public class ReportsController : ControllerBase
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Reporte");
 
-        var baseHeaders = new[]
+        var headers = new List<string>
         {
+            "Fecha",
             "SKU",
             "EAN",
             "Descripcion",
@@ -357,14 +358,11 @@ public class ReportsController : ControllerBase
             "Proveedor",
             "Categoria",
             "Linea",
-            "Precio Descuento",
-            "Precio Normal"
-        };
-
-        var competitorHeaders = new[]
-        {
-            "Lista",
-            "Promo",
+            "Precio-Descuento",
+            "Precio-Normal",
+            "Competidor",
+            "Precio Lista",
+            "Precio Promo",
             "Diff Lista $",
             "Diff Lista %",
             "Diff Promo $",
@@ -374,17 +372,6 @@ public class ReportsController : ControllerBase
             "Nombre",
             "URL"
         };
-
-        var headers = new List<string> { "Fecha" };
-        headers.AddRange(baseHeaders);
-
-        foreach (var competitor in competitors)
-        {
-            foreach (var suffix in competitorHeaders)
-            {
-                headers.Add($"{competitor.Name} {suffix}");
-            }
-        }
 
         for (var i = 0; i < headers.Count; i++)
         {
@@ -396,17 +383,6 @@ public class ReportsController : ControllerBase
         {
             foreach (var date in dates)
             {
-                sheet.Cell(rowIndex, 1).Value = date.ToString("dd/MM/yy");
-                sheet.Cell(rowIndex, 2).Value = product.Sku ?? string.Empty;
-                sheet.Cell(rowIndex, 3).Value = product.Ean ?? string.Empty;
-                sheet.Cell(rowIndex, 4).Value = product.Description;
-                sheet.Cell(rowIndex, 5).Value = product.BrandName ?? string.Empty;
-                sheet.Cell(rowIndex, 6).Value = product.SupplierName ?? string.Empty;
-                sheet.Cell(rowIndex, 7).Value = product.CategoryName ?? string.Empty;
-                sheet.Cell(rowIndex, 8).Value = product.LineName ?? string.Empty;
-                sheet.Cell(rowIndex, 9).Value = product.MedipielPromoPrice;
-                sheet.Cell(rowIndex, 10).Value = product.MedipielListPrice;
-
                 var baselineList = baselineCompetitorId.HasValue
                     ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshot)
                         ? baselineSnapshot.ListPrice
@@ -419,7 +395,6 @@ public class ReportsController : ControllerBase
                         : null
                     : null;
 
-                var currentCol = baseHeaders.Length + 2;
                 foreach (var competitor in competitors)
                 {
                     snapshotMap.TryGetValue((date, product.Id, competitor.Id), out var snapshot);
@@ -432,21 +407,30 @@ public class ReportsController : ControllerBase
                     var diffPromo = ComputeDiff(promoPrice, baselinePromo);
                     var diffPromoPercent = ComputeDiffPercent(promoPrice, baselinePromo);
 
-                    sheet.Cell(rowIndex, currentCol + 0).Value = listPrice;
-                    sheet.Cell(rowIndex, currentCol + 1).Value = promoPrice;
-                    sheet.Cell(rowIndex, currentCol + 2).Value = diffList;
-                    sheet.Cell(rowIndex, currentCol + 3).Value = diffListPercent;
-                    sheet.Cell(rowIndex, currentCol + 4).Value = diffPromo;
-                    sheet.Cell(rowIndex, currentCol + 5).Value = diffPromoPercent;
-                    sheet.Cell(rowIndex, currentCol + 6).Value = cp?.MatchMethod ?? string.Empty;
-                    sheet.Cell(rowIndex, currentCol + 7).Value = cp?.MatchScore;
-                    sheet.Cell(rowIndex, currentCol + 8).Value = cp?.Name ?? string.Empty;
-                    sheet.Cell(rowIndex, currentCol + 9).Value = cp?.Url ?? string.Empty;
+                    sheet.Cell(rowIndex, 1).Value = date.ToString("dd/MM/yy");
+                    sheet.Cell(rowIndex, 2).Value = product.Sku ?? string.Empty;
+                    sheet.Cell(rowIndex, 3).Value = product.Ean ?? string.Empty;
+                    sheet.Cell(rowIndex, 4).Value = product.Description;
+                    sheet.Cell(rowIndex, 5).Value = product.BrandName ?? string.Empty;
+                    sheet.Cell(rowIndex, 6).Value = product.SupplierName ?? string.Empty;
+                    sheet.Cell(rowIndex, 7).Value = product.CategoryName ?? string.Empty;
+                    sheet.Cell(rowIndex, 8).Value = product.LineName ?? string.Empty;
+                    sheet.Cell(rowIndex, 9).Value = product.MedipielPromoPrice;
+                    sheet.Cell(rowIndex, 10).Value = product.MedipielListPrice;
+                    sheet.Cell(rowIndex, 11).Value = competitor.Name;
+                    sheet.Cell(rowIndex, 12).Value = listPrice;
+                    sheet.Cell(rowIndex, 13).Value = promoPrice;
+                    sheet.Cell(rowIndex, 14).Value = diffList;
+                    sheet.Cell(rowIndex, 15).Value = diffListPercent;
+                    sheet.Cell(rowIndex, 16).Value = diffPromo;
+                    sheet.Cell(rowIndex, 17).Value = diffPromoPercent;
+                    sheet.Cell(rowIndex, 18).Value = cp?.MatchMethod ?? string.Empty;
+                    sheet.Cell(rowIndex, 19).Value = cp?.MatchScore;
+                    sheet.Cell(rowIndex, 20).Value = cp?.Name ?? string.Empty;
+                    sheet.Cell(rowIndex, 21).Value = cp?.Url ?? string.Empty;
 
-                    currentCol += competitorHeaders.Length;
+                    rowIndex += 1;
                 }
-
-                rowIndex += 1;
             }
         }
 
@@ -456,29 +440,8 @@ public class ReportsController : ControllerBase
         headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f2f4f8");
 
-        var moneyColumns = new List<int>();
-        var percentColumns = new List<int>();
-
-        for (var i = 0; i < baseHeaders.Length; i++)
-        {
-            var header = baseHeaders[i];
-            if (header.StartsWith("Precio", StringComparison.OrdinalIgnoreCase))
-            {
-                moneyColumns.Add(i + 2);
-            }
-        }
-
-        var competitorStart = baseHeaders.Length + 2;
-        for (var competitorIndex = 0; competitorIndex < competitors.Count; competitorIndex++)
-        {
-            var blockStart = competitorStart + (competitorIndex * competitorHeaders.Length);
-            moneyColumns.Add(blockStart + 0);
-            moneyColumns.Add(blockStart + 1);
-            moneyColumns.Add(blockStart + 2);
-            moneyColumns.Add(blockStart + 4);
-            percentColumns.Add(blockStart + 3);
-            percentColumns.Add(blockStart + 5);
-        }
+        var moneyColumns = new[] { 9, 10, 12, 13, 14, 16 };
+        var percentColumns = new[] { 15, 17 };
 
         foreach (var col in moneyColumns.Distinct())
         {
@@ -491,7 +454,7 @@ public class ReportsController : ControllerBase
         }
 
         sheet.SheetView.FreezeRows(1);
-        sheet.SheetView.FreezeColumns(baseHeaders.Length + 1);
+        sheet.SheetView.FreezeColumns(11);
         sheet.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();
