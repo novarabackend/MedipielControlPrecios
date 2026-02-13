@@ -49,13 +49,6 @@ const schedulerGroup: FuseNavigationItem = {
             icon: 'heroicons_outline:clock',
             link: '/settings/scheduler',
         },
-        {
-            id: 'scheduler.alerts',
-            title: 'Alertas',
-            type: 'basic',
-            icon: 'heroicons_outline:bell-alert',
-            link: '/settings/alerts',
-        },
     ],
 };
 
@@ -70,13 +63,6 @@ const resultsGroup: FuseNavigationItem = {
             type: 'basic',
             icon: 'heroicons_outline:calendar-days',
             link: '/results/history',
-        },
-        {
-            id: 'results.alerts',
-            title: 'Alertas',
-            type: 'basic',
-            icon: 'heroicons_outline:bell-alert',
-            link: '/results/alerts',
         },
     ],
 };
