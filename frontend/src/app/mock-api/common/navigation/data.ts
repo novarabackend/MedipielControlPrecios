@@ -96,6 +96,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
             },
         ],
     },
+    resultsGroup,
     {
         id: 'catalog',
         title: 'Catalogo',
@@ -112,7 +113,6 @@ export const defaultNavigation: FuseNavigationItem[] = [
     },
     mastersGroup,
     schedulerGroup,
-    resultsGroup,
 ];
 export const compactNavigation: FuseNavigationItem[] = [
     {
@@ -129,6 +129,7 @@ export const compactNavigation: FuseNavigationItem[] = [
             },
         ],
     },
+    resultsGroup,
     {
         id: 'catalog',
         title: 'Catalogo',
@@ -145,7 +146,6 @@ export const compactNavigation: FuseNavigationItem[] = [
     },
     mastersGroup,
     schedulerGroup,
-    resultsGroup,
 ];
 export const futuristicNavigation: FuseNavigationItem[] = [
     {
@@ -162,6 +162,7 @@ export const futuristicNavigation: FuseNavigationItem[] = [
             },
         ],
     },
+    resultsGroup,
     {
         id: 'catalog',
         title: 'Catalogo',
@@ -178,7 +179,6 @@ export const futuristicNavigation: FuseNavigationItem[] = [
     },
     mastersGroup,
     schedulerGroup,
-    resultsGroup,
 ];
 export const horizontalNavigation: FuseNavigationItem[] = [
     {
@@ -195,6 +195,7 @@ export const horizontalNavigation: FuseNavigationItem[] = [
             },
         ],
     },
+    resultsGroup,
     {
         id: 'catalog',
         title: 'Catalogo',
@@ -211,5 +212,4 @@ export const horizontalNavigation: FuseNavigationItem[] = [
     },
     mastersGroup,
     schedulerGroup,
-    resultsGroup,
 ];
