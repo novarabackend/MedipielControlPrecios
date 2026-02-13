@@ -176,6 +176,11 @@ public class PriceSnapshotsController : ControllerBase
         }
 
         var normalized = name.Trim().ToLowerInvariant();
+        if (normalized.Contains("medipiel"))
+        {
+            return "#a1c9f1";
+        }
+
         if (normalized.Contains("bella piel"))
         {
             return "#729fcf";
