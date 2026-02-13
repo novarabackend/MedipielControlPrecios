@@ -74,13 +74,23 @@ export class SnapshotsHistoryComponent {
     readonly selectedDate = signal('');
     readonly alertRules = signal<AlertRule[]>([]);
     readonly brands = signal<MasterItem[]>([]);
+    readonly suppliers = signal<MasterItem[]>([]);
     readonly categories = signal<MasterItem[]>([]);
+    readonly lines = signal<MasterItem[]>([]);
     readonly reportFrom = signal('');
     readonly reportTo = signal('');
     readonly reportBrandId = signal<number | null>(null);
     readonly reportCategoryId = signal<number | null>(null);
     readonly exporting = signal(false);
     readonly exportError = signal('');
+    readonly filterEan = signal('');
+    readonly filterName = signal('');
+    readonly filterBrandId = signal<number | null>(null);
+    readonly filterSupplierId = signal<number | null>(null);
+    readonly filterCategoryId = signal<number | null>(null);
+    readonly filterLineId = signal<number | null>(null);
+    readonly filterCompetitor = signal<number | null>(null);
+    readonly filterStatus = signal('all');
     readonly editorOpen = signal(false);
     readonly editorLoading = signal(false);
     readonly editorError = signal('');
@@ -154,7 +164,79 @@ export class SnapshotsHistoryComponent {
             };
         })
     );
-    readonly hasItems = computed(() => this.rowsView().length > 0);
+    readonly filteredRowsView = computed<SnapshotRowView[]>(() => {
+        const eanFilter = this.normalize(this.filterEan());
+        const nameFilter = this.normalize(this.filterName());
+        const brandIdFilter = this.filterBrandId();
+        const supplierIdFilter = this.filterSupplierId();
+        const categoryIdFilter = this.filterCategoryId();
+        const lineIdFilter = this.filterLineId();
+        const competitorFilter = this.filterCompetitor();
+        const statusFilter = this.filterStatus();
+
+        return this.rowsView().filter((row) => {
+            if (eanFilter && !this.normalize(row.ean ?? '').includes(eanFilter)) {
+                return false;
+            }
+
+            if (
+                nameFilter &&
+                !this.normalize(row.description ?? '').includes(nameFilter)
+            ) {
+                return false;
+            }
+
+            if (
+                brandIdFilter !== null &&
+                brandIdFilter !== undefined &&
+                row.brandId !== brandIdFilter
+            ) {
+                return false;
+            }
+
+            if (
+                supplierIdFilter !== null &&
+                supplierIdFilter !== undefined &&
+                row.supplierId !== supplierIdFilter
+            ) {
+                return false;
+            }
+
+            if (
+                categoryIdFilter !== null &&
+                categoryIdFilter !== undefined &&
+                row.categoryId !== categoryIdFilter
+            ) {
+                return false;
+            }
+
+            if (
+                lineIdFilter !== null &&
+                lineIdFilter !== undefined &&
+                row.lineId !== lineIdFilter
+            ) {
+                return false;
+            }
+
+            if (statusFilter === 'no-ean') {
+                return !row.ean;
+            }
+
+            if (statusFilter === 'matched') {
+                return this.hasMatch(row, competitorFilter);
+            }
+
+            if (statusFilter === 'unmatched') {
+                return !this.hasMatch(row, competitorFilter);
+            }
+
+            return true;
+        });
+    });
+    readonly totalCount = computed(() => this.rowsView().length);
+    readonly filteredCount = computed(() => this.filteredRowsView().length);
+    readonly hasRows = computed(() => this.totalCount() > 0);
+    readonly hasItems = computed(() => this.filteredCount() > 0);
     readonly snapshotDate = computed(() => this.data()?.snapshotDate ?? '—');
     readonly editorRows = computed<EditorCompetitorRow[]>(() => {
         const data = this.editorData();
@@ -209,10 +291,29 @@ export class SnapshotsHistoryComponent {
             next: (items) => this.brands.set(items),
             error: () => this.brands.set([]),
         });
+        this._mastersService.getSuppliers().subscribe({
+            next: (items) => this.suppliers.set(items),
+            error: () => this.suppliers.set([]),
+        });
         this._mastersService.getCategories().subscribe({
             next: (items) => this.categories.set(items),
             error: () => this.categories.set([]),
         });
+        this._mastersService.getLines().subscribe({
+            next: (items) => this.lines.set(items),
+            error: () => this.lines.set([]),
+        });
+    }
+
+    resetFilters(): void {
+        this.filterEan.set('');
+        this.filterName.set('');
+        this.filterBrandId.set(null);
+        this.filterSupplierId.set(null);
+        this.filterCategoryId.set(null);
+        this.filterLineId.set(null);
+        this.filterCompetitor.set(null);
+        this.filterStatus.set('all');
     }
 
     exportExcel(): void {
@@ -282,6 +383,24 @@ export class SnapshotsHistoryComponent {
                 next: (data) => this.data.set(data),
                 error: () => this.error.set('No se pudo cargar el snapshot.'),
             });
+    }
+
+    hasMatch(row: SnapshotRowView, competitorId: number | null): boolean {
+        if (!competitorId) {
+            return Object.values(row.pricesByCompetitor).some(
+                (price) =>
+                    price.listPrice !== null ||
+                    price.promoPrice !== null ||
+                    !!price.url
+            );
+        }
+
+        const price = row.pricesByCompetitor[competitorId];
+        if (!price) {
+            return false;
+        }
+
+        return price.listPrice !== null || price.promoPrice !== null || !!price.url;
     }
 
     getCompetitorColor(index: number, competitor: CompetitorInfo): string {
@@ -461,5 +580,13 @@ export class SnapshotsHistoryComponent {
             draft[competitor.id] = latestByCompetitor.get(competitor.id)?.url ?? '';
         }
         this.editorUrlDrafts.set(draft);
+    }
+
+    private normalize(value: string): string {
+        return value
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .toLowerCase()
+            .trim();
     }
 }

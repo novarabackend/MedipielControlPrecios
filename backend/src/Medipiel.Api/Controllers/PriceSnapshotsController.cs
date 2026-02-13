@@ -63,6 +63,12 @@ public class PriceSnapshotsController : ControllerBase
             from p in _db.Products.AsNoTracking()
             join b in _db.Brands.AsNoTracking() on p.BrandId equals b.Id into bJoin
             from b in bJoin.DefaultIfEmpty()
+            join s in _db.Suppliers.AsNoTracking() on p.SupplierId equals s.Id into sJoin
+            from s in sJoin.DefaultIfEmpty()
+            join c in _db.Categories.AsNoTracking() on p.CategoryId equals c.Id into cJoin
+            from c in cJoin.DefaultIfEmpty()
+            join l in _db.Lines.AsNoTracking() on p.LineId equals l.Id into lJoin
+            from l in lJoin.DefaultIfEmpty()
             orderby p.Description
             select new
             {
@@ -70,7 +76,14 @@ public class PriceSnapshotsController : ControllerBase
                 p.Sku,
                 p.Ean,
                 p.Description,
+                p.BrandId,
+                p.SupplierId,
+                p.CategoryId,
+                p.LineId,
                 BrandName = b != null ? b.Name : null,
+                SupplierName = s != null ? s.Name : null,
+                CategoryName = c != null ? c.Name : null,
+                LineName = l != null ? l.Name : null,
                 p.MedipielListPrice,
                 p.MedipielPromoPrice
             };
@@ -125,7 +138,14 @@ public class PriceSnapshotsController : ControllerBase
                 product.Sku,
                 product.Ean,
                 product.Description,
+                product.BrandId,
+                product.SupplierId,
+                product.CategoryId,
+                product.LineId,
                 product.BrandName,
+                product.SupplierName,
+                product.CategoryName,
+                product.LineName,
                 product.MedipielListPrice,
                 product.MedipielPromoPrice,
                 orderedCompetitors.Select(competitor =>
@@ -230,7 +250,14 @@ public sealed record SnapshotRow(
     string? Sku,
     string? Ean,
     string Description,
+    int? BrandId,
+    int? SupplierId,
+    int? CategoryId,
+    int? LineId,
     string? BrandName,
+    string? SupplierName,
+    string? CategoryName,
+    string? LineName,
     decimal? MedipielListPrice,
     decimal? MedipielPromoPrice,
     List<SnapshotPrice> Prices
