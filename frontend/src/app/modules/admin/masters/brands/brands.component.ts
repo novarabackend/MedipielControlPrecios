@@ -6,6 +6,7 @@ import { catchError, concatMap, finalize, map, switchMap, tap } from 'rxjs/opera
 import { from, of } from 'rxjs';
 import * as XLSX from 'xlsx';
 import { MastersService, MasterItem } from 'app/core/masters/masters.service';
+import { AlertRule, AlertsService } from 'app/core/alerts/alerts.service';
 
 interface ImportSummary {
     total: number;
@@ -24,11 +25,13 @@ interface ImportSummary {
 export class BrandsComponent {
     private _fb = inject(FormBuilder);
     private _service = inject(MastersService);
+    private _alertsService = inject(AlertsService);
 
     readonly items = signal<MasterItem[]>([]);
     readonly loading = signal(false);
     readonly error = signal('');
     readonly suppliers = signal<MasterItem[]>([]);
+    readonly alertRules = signal<AlertRule[]>([]);
 
     readonly importing = signal(false);
     readonly importFile = signal<File | null>(null);
@@ -41,11 +44,13 @@ export class BrandsComponent {
     readonly createForm = this._fb.group({
         name: ['', [Validators.required]],
         supplier: ['', [Validators.required]],
+        alertPercent: this._fb.control<number | null>(null, [Validators.min(0)]),
     });
 
     readonly editForm = this._fb.group({
         name: ['', [Validators.required]],
         supplier: ['', [Validators.required]],
+        alertPercent: this._fb.control<number | null>(null, [Validators.min(0)]),
     });
 
     readonly hasError = computed(() => this.error().length > 0);
@@ -57,10 +62,18 @@ export class BrandsComponent {
         }
         return map;
     });
+    readonly alertRuleMap = computed(() => {
+        const map = new Map<number, AlertRule>();
+        for (const rule of this.alertRules()) {
+            map.set(rule.brandId, rule);
+        }
+        return map;
+    });
 
     constructor() {
         this.load();
         this.loadSuppliers();
+        this.loadAlertRules();
     }
 
     load(): void {
@@ -82,6 +95,13 @@ export class BrandsComponent {
         this._service.getSuppliers().subscribe({
             next: (items) => this.suppliers.set(items),
             error: () => this.error.set('No se pudo cargar Proveedores.'),
+        });
+    }
+
+    loadAlertRules(): void {
+        this._alertsService.getRules().subscribe({
+            next: (items) => this.alertRules.set(items),
+            error: () => this.alertRules.set([]),
         });
     }
 
@@ -119,14 +139,40 @@ export class BrandsComponent {
                     this.error.set('No se pudo resolver el proveedor.');
                     return;
                 }
-                this._service.createBrand(name, supplierId).subscribe({
-                    next: () => {
-                        this.createForm.reset();
-                        this.load();
-                        this.showCreatePanel.set(false);
-                    },
-                    error: () => this.error.set('No se pudo crear la marca.'),
-                });
+                const threshold = this.toNumberOrNull(
+                    this.createForm.value.alertPercent
+                );
+                const payload = this.buildAlertPayload(threshold);
+
+                this._service
+                    .createBrand(name, supplierId)
+                    .pipe(
+                        switchMap((created) =>
+                            this._alertsService
+                                .upsertRule(created.id, payload)
+                                .pipe(
+                                    catchError(() => {
+                                        this.error.set(
+                                            'La marca se creo, pero no se pudo guardar la regla de alertas.'
+                                        );
+                                        return of(null);
+                                    })
+                                )
+                        )
+                    )
+                    .subscribe({
+                        next: () => {
+                            this.createForm.reset({
+                                name: '',
+                                supplier: '',
+                                alertPercent: null,
+                            });
+                            this.load();
+                            this.loadAlertRules();
+                            this.showCreatePanel.set(false);
+                        },
+                        error: () => this.error.set('No se pudo crear la marca.'),
+                    });
             },
             error: () => this.error.set('No se pudo resolver el proveedor.'),
         });
@@ -135,7 +181,15 @@ export class BrandsComponent {
     startEdit(item: MasterItem): void {
         this.editing.set(item);
         const supplierName = this.supplierNameFor(item.supplierId);
-        this.editForm.reset({ name: item.name, supplier: supplierName === '—' ? '' : supplierName });
+        const rule = this.alertRuleMap().get(item.id);
+        const threshold = rule?.active
+            ? (rule.listPriceThresholdPercent ?? rule.promoPriceThresholdPercent ?? null)
+            : null;
+        this.editForm.reset({
+            name: item.name,
+            supplier: supplierName === '—' ? '' : supplierName,
+            alertPercent: threshold,
+        });
     }
 
     cancelEdit(): void {
@@ -167,13 +221,33 @@ export class BrandsComponent {
                     this.error.set('No se pudo resolver el proveedor.');
                     return;
                 }
-                this._service.updateBrand(target.id, name, supplierId).subscribe({
-                    next: () => {
-                        this.cancelEdit();
-                        this.load();
-                    },
-                    error: () => this.error.set('No se pudo actualizar la marca.'),
-                });
+                const threshold = this.toNumberOrNull(
+                    this.editForm.value.alertPercent
+                );
+                const payload = this.buildAlertPayload(threshold);
+
+                this._service
+                    .updateBrand(target.id, name, supplierId)
+                    .pipe(
+                        switchMap(() =>
+                            this._alertsService.upsertRule(target.id, payload).pipe(
+                                catchError(() => {
+                                    this.error.set(
+                                        'La marca se guardo, pero no se pudo guardar la regla de alertas.'
+                                    );
+                                    return of(null);
+                                })
+                            )
+                        )
+                    )
+                    .subscribe({
+                        next: () => {
+                            this.cancelEdit();
+                            this.load();
+                            this.loadAlertRules();
+                        },
+                        error: () => this.error.set('No se pudo actualizar la marca.'),
+                    });
             },
             error: () => this.error.set('No se pudo resolver el proveedor.'),
         });
@@ -184,6 +258,49 @@ export class BrandsComponent {
             next: () => this.load(),
             error: () => this.error.set('No se pudo eliminar la marca.'),
         });
+    }
+
+    getAlertThreshold(brandId: number): number | null {
+        const rule = this.alertRuleMap().get(brandId);
+        if (!rule || !rule.active) {
+            return null;
+        }
+        return rule.listPriceThresholdPercent ?? rule.promoPriceThresholdPercent ?? null;
+    }
+
+    getAlertThresholdText(brandId: number): string {
+        const threshold = this.getAlertThreshold(brandId);
+        if (threshold === null || threshold === undefined) {
+            return '—';
+        }
+        return `${threshold}%`;
+    }
+
+    private buildAlertPayload(threshold: number | null) {
+        if (threshold === null) {
+            return {
+                listPriceThresholdPercent: null,
+                promoPriceThresholdPercent: null,
+                active: false,
+            };
+        }
+
+        return {
+            listPriceThresholdPercent: threshold,
+            promoPriceThresholdPercent: threshold,
+            active: true,
+        };
+    }
+
+    private toNumberOrNull(value: unknown): number | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : null;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
     }
 
     onFileChange(event: Event): void {

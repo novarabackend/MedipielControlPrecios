@@ -36,7 +36,7 @@
                 <div class="border-b px-6 py-5">
                     <div class="text-lg font-semibold">Nueva marca</div>
                     <form
-                        class="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_auto]"
+                        class="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_200px_auto]"
                         [formGroup]="createForm"
                         (ngSubmit)="create()"
                     >
@@ -64,6 +64,21 @@
                             />
                             @if (createForm.get('supplier')?.touched && createForm.get('supplier')?.invalid) {
                                 <div class="mt-1 text-xs text-warn">El proveedor es obligatorio.</div>
+                            }
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium" for="brandAlert">Alerta (%)</label>
+                            <input
+                                id="brandAlert"
+                                class="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                                formControlName="alertPercent"
+                                placeholder="Ej: 8"
+                                type="number"
+                                min="0"
+                                step="0.1"
+                            />
+                            @if (createForm.get('alertPercent')?.touched && createForm.get('alertPercent')?.invalid) {
+                                <div class="mt-1 text-xs text-warn">Ingresa un porcentaje valido.</div>
                             }
                         </div>
                         <div class="flex items-end gap-2">
@@ -143,6 +158,7 @@
                                 <tr class="border-b">
                                     <th class="py-3 pr-4">Nombre</th>
                                     <th class="py-3 pr-4">Proveedor</th>
+                                    <th class="py-3 pr-4">Alerta (%)</th>
                                     <th class="py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
@@ -175,6 +191,22 @@
                                                 </div>
                                             } @else {
                                                 {{ supplierNameFor(item.supplierId) }}
+                                            }
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            @if (editing()?.id === item.id) {
+                                                <div [formGroup]="editForm">
+                                                    <input
+                                                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                                                        formControlName="alertPercent"
+                                                        placeholder="Ej: 8"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.1"
+                                                    />
+                                                </div>
+                                            } @else {
+                                                {{ getAlertThresholdText(item.id) }}
                                             }
                                         </td>
                                         <td class="py-3 text-right">
