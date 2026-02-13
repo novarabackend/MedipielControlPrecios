@@ -403,7 +403,7 @@ public class ReportsController : ControllerBase
         }
 
         sheet.SheetView.FreezeRows(1);
-        sheet.SheetView.FreezeColumns(8);
+        sheet.SheetView.FreezeColumns(4);
         sheet.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();
