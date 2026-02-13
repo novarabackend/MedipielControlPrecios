@@ -193,6 +193,18 @@
                     <mat-option value="no-ean">Sin EAN</mat-option>
                 </mat-select>
             </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Alerta</mat-label>
+                <mat-select
+                    [value]="filterAlert()"
+                    (selectionChange)="filterAlert.set($event.value)"
+                >
+                    <mat-option value="all">Todos</mat-option>
+                    <mat-option value="with">Con alerta</mat-option>
+                    <mat-option value="without">Sin alerta</mat-option>
+                </mat-select>
+            </mat-form-field>
         </div>
 
         <div class="mt-2">

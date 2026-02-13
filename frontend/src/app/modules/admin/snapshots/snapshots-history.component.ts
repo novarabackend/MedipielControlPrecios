@@ -90,6 +90,7 @@ export class SnapshotsHistoryComponent {
     readonly filterLineId = signal<number | null>(null);
     readonly filterCompetitor = signal<number | null>(null);
     readonly filterStatus = signal('all');
+    readonly filterAlert = signal('all');
     readonly editorOpen = signal(false);
     readonly editorLoading = signal(false);
     readonly editorError = signal('');
@@ -173,6 +174,7 @@ export class SnapshotsHistoryComponent {
         const lineIdFilter = this.filterLineId();
         const competitorFilter = this.filterCompetitor();
         const statusFilter = this.filterStatus();
+        const alertFilter = this.filterAlert();
 
         return this.rowsView().filter((row) => {
             if (skuFilter && !this.normalize(row.sku ?? '').includes(skuFilter)) {
@@ -232,6 +234,14 @@ export class SnapshotsHistoryComponent {
 
             if (statusFilter === 'unmatched') {
                 return !this.hasMatch(row, competitorFilter);
+            }
+
+            if (alertFilter === 'with') {
+                return this.hasAlert(row, competitorFilter);
+            }
+
+            if (alertFilter === 'without') {
+                return !this.hasAlert(row, competitorFilter);
             }
 
             return true;
@@ -319,6 +329,7 @@ export class SnapshotsHistoryComponent {
         this.filterLineId.set(null);
         this.filterCompetitor.set(null);
         this.filterStatus.set('all');
+        this.filterAlert.set('all');
     }
 
     exportExcel(): void {
@@ -413,6 +424,28 @@ export class SnapshotsHistoryComponent {
         }
 
         return price.listPrice !== null || price.promoPrice !== null || !!price.url;
+    }
+
+    hasAlert(row: SnapshotRowView, competitorId: number | null): boolean {
+        const brandName = row.brandName ?? null;
+        const baseline = this.baselineCompetitorId();
+
+        const evaluateCompetitor = (id: number): boolean => {
+            if (baseline && id === baseline) {
+                return false;
+            }
+
+            return (
+                this.isLargeDelta(row.deltaListByCompetitor[id], brandName, 'list') ||
+                this.isLargeDelta(row.deltaPromoByCompetitor[id], brandName, 'promo')
+            );
+        };
+
+        if (competitorId) {
+            return evaluateCompetitor(competitorId);
+        }
+
+        return this.competitors().some((item) => evaluateCompetitor(item.id));
     }
 
     getCompetitorColor(index: number, competitor: CompetitorInfo): string {
