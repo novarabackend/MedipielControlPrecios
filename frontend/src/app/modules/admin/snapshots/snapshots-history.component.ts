@@ -79,8 +79,6 @@ export class SnapshotsHistoryComponent {
     readonly lines = signal<MasterItem[]>([]);
     readonly reportFrom = signal('');
     readonly reportTo = signal('');
-    readonly reportBrandId = signal<number | null>(null);
-    readonly reportCategoryId = signal<number | null>(null);
     readonly exporting = signal(false);
     readonly exportError = signal('');
     readonly filterEan = signal('');
@@ -325,6 +323,12 @@ export class SnapshotsHistoryComponent {
             return;
         }
 
+        const productIds = this.filteredRowsView().map((item) => item.productId);
+        if (productIds.length === 0) {
+            this.exportError.set('No hay productos para exportar.');
+            return;
+        }
+
         this.exporting.set(true);
         this.exportError.set('');
 
@@ -332,8 +336,9 @@ export class SnapshotsHistoryComponent {
             .downloadExcel({
                 from,
                 to,
-                brandId: this.reportBrandId(),
-                categoryId: this.reportCategoryId(),
+                brandId: this.filterBrandId(),
+                categoryId: this.filterCategoryId(),
+                productIds,
                 format: 'long',
             })
             .pipe(finalize(() => this.exporting.set(false)))

@@ -34,68 +34,6 @@
         </div>
     </div>
 
-    <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-        <div class="text-sm font-medium">Reporte Excel</div>
-        <div class="mt-3 flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-2">
-                <span class="text-xs text-secondary">Desde</span>
-                <input
-                    class="date-input"
-                    type="date"
-                    [value]="reportFrom()"
-                    (change)="reportFrom.set($any($event.target).value)"
-                />
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs text-secondary">Hasta</span>
-                <input
-                    class="date-input"
-                    type="date"
-                    [value]="reportTo()"
-                    (change)="reportTo.set($any($event.target).value)"
-                />
-            </div>
-            <mat-form-field class="w-52">
-                <mat-label>Marca</mat-label>
-                <mat-select
-                    [value]="reportBrandId()"
-                    (selectionChange)="reportBrandId.set($event.value)"
-                >
-                    <mat-option [value]="null">Todas</mat-option>
-                    @for (item of brands(); track item.id) {
-                        <mat-option [value]="item.id">{{ item.name }}</mat-option>
-                    }
-                </mat-select>
-            </mat-form-field>
-            <mat-form-field class="w-52">
-                <mat-label>Categoria</mat-label>
-                <mat-select
-                    [value]="reportCategoryId()"
-                    (selectionChange)="reportCategoryId.set($event.value)"
-                >
-                    <mat-option [value]="null">Todas</mat-option>
-                    @for (item of categories(); track item.id) {
-                        <mat-option [value]="item.id">{{ item.name }}</mat-option>
-                    }
-                </mat-select>
-            </mat-form-field>
-            <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                (click)="exportExcel()"
-                [disabled]="exporting()"
-            >
-                Exportar Excel
-            </button>
-        </div>
-        @if (exportError().length > 0) {
-            <div class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {{ exportError() }}
-            </div>
-        }
-    </div>
-
     @if (error().length > 0) {
         <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {{ error() }}
@@ -104,11 +42,48 @@
 
     <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="text-sm font-medium">Listado</div>
-            <div class="text-secondary text-sm">
-                Mostrando {{ filteredCount() }} de {{ totalCount() }}
+            <div>
+                <div class="text-sm font-medium">Listado</div>
+                <div class="text-secondary text-sm">
+                    Mostrando {{ filteredCount() }} de {{ totalCount() }}
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-secondary">Desde</span>
+                    <input
+                        class="date-input"
+                        type="date"
+                        [value]="reportFrom()"
+                        (change)="reportFrom.set($any($event.target).value)"
+                    />
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-secondary">Hasta</span>
+                    <input
+                        class="date-input"
+                        type="date"
+                        [value]="reportTo()"
+                        (change)="reportTo.set($any($event.target).value)"
+                    />
+                </div>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="exportExcel()"
+                    [disabled]="exporting()"
+                >
+                    Exportar Excel
+                </button>
             </div>
         </div>
+        @if (exportError().length > 0) {
+            <div class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {{ exportError() }}
+            </div>
+        }
 
         <div class="mt-4 grid gap-4 lg:grid-cols-7">
             <mat-form-field class="w-full">
