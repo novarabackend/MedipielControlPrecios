@@ -123,17 +123,8 @@ public class ReportsController : ControllerBase
                 x.SnapshotDate <= toDate)
             .ToListAsync();
 
-        var competitorProducts = await _db.CompetitorProducts.AsNoTracking()
-            .Where(x => productIdsAll.Contains(x.ProductId) && competitorIds.Contains(x.CompetitorId))
-            .ToListAsync();
-
         var snapshotMap = snapshots.ToDictionary(
             x => (x.SnapshotDate, x.ProductId, x.CompetitorId),
-            x => x
-        );
-
-        var competitorProductMap = competitorProducts.ToDictionary(
-            x => (x.ProductId, x.CompetitorId),
             x => x
         );
 
@@ -152,11 +143,18 @@ public class ReportsController : ControllerBase
                 orderedCompetitors,
                 dates,
                 snapshotMap,
-                competitorProductMap,
-                baselineCompetitorId,
                 fromDate,
                 toDate);
         }
+
+        var competitorProducts = await _db.CompetitorProducts.AsNoTracking()
+            .Where(x => productIdsAll.Contains(x.ProductId) && competitorIds.Contains(x.CompetitorId))
+            .ToListAsync();
+
+        var competitorProductMap = competitorProducts.ToDictionary(
+            x => (x.ProductId, x.CompetitorId),
+            x => x
+        );
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Reporte");
@@ -340,8 +338,6 @@ public class ReportsController : ControllerBase
         List<Models.Competitor> competitors,
         List<DateOnly> dates,
         Dictionary<(DateOnly, int, int), Models.PriceSnapshot> snapshotMap,
-        Dictionary<(int, int), Models.CompetitorProduct> competitorProductMap,
-        int? baselineCompetitorId,
         DateOnly fromDate,
         DateOnly toDate)
     {
@@ -360,17 +356,7 @@ public class ReportsController : ControllerBase
             "Linea",
             "Precio-Descuento",
             "Precio-Normal",
-            "Competidor",
-            "Precio Lista",
-            "Precio Promo",
-            "Diff Lista $",
-            "Diff Lista %",
-            "Diff Promo $",
-            "Diff Promo %",
-            "Match Metodo",
-            "Match Score",
-            "Nombre",
-            "URL"
+            "Competidor"
         };
 
         for (var i = 0; i < headers.Count; i++)
@@ -383,29 +369,9 @@ public class ReportsController : ControllerBase
         {
             foreach (var date in dates)
             {
-                var baselineList = baselineCompetitorId.HasValue
-                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshot)
-                        ? baselineSnapshot.ListPrice
-                        : null
-                    : null;
-
-                var baselinePromo = baselineCompetitorId.HasValue
-                    ? snapshotMap.TryGetValue((date, product.Id, baselineCompetitorId.Value), out var baselineSnapshotPromo)
-                        ? baselineSnapshotPromo.PromoPrice
-                        : null
-                    : null;
-
                 foreach (var competitor in competitors)
                 {
                     snapshotMap.TryGetValue((date, product.Id, competitor.Id), out var snapshot);
-                    competitorProductMap.TryGetValue((product.Id, competitor.Id), out var cp);
-
-                    var listPrice = snapshot?.ListPrice;
-                    var promoPrice = snapshot?.PromoPrice;
-                    var diffList = ComputeDiff(listPrice, baselineList);
-                    var diffListPercent = ComputeDiffPercent(listPrice, baselineList);
-                    var diffPromo = ComputeDiff(promoPrice, baselinePromo);
-                    var diffPromoPercent = ComputeDiffPercent(promoPrice, baselinePromo);
 
                     sheet.Cell(rowIndex, 1).Value = date.ToString("dd/MM/yy");
                     sheet.Cell(rowIndex, 2).Value = product.Sku ?? string.Empty;
@@ -415,19 +381,9 @@ public class ReportsController : ControllerBase
                     sheet.Cell(rowIndex, 6).Value = product.SupplierName ?? string.Empty;
                     sheet.Cell(rowIndex, 7).Value = product.CategoryName ?? string.Empty;
                     sheet.Cell(rowIndex, 8).Value = product.LineName ?? string.Empty;
-                    sheet.Cell(rowIndex, 9).Value = product.MedipielPromoPrice;
-                    sheet.Cell(rowIndex, 10).Value = product.MedipielListPrice;
+                    sheet.Cell(rowIndex, 9).Value = snapshot?.PromoPrice;
+                    sheet.Cell(rowIndex, 10).Value = snapshot?.ListPrice;
                     sheet.Cell(rowIndex, 11).Value = competitor.Name;
-                    sheet.Cell(rowIndex, 12).Value = listPrice;
-                    sheet.Cell(rowIndex, 13).Value = promoPrice;
-                    sheet.Cell(rowIndex, 14).Value = diffList;
-                    sheet.Cell(rowIndex, 15).Value = diffListPercent;
-                    sheet.Cell(rowIndex, 16).Value = diffPromo;
-                    sheet.Cell(rowIndex, 17).Value = diffPromoPercent;
-                    sheet.Cell(rowIndex, 18).Value = cp?.MatchMethod ?? string.Empty;
-                    sheet.Cell(rowIndex, 19).Value = cp?.MatchScore;
-                    sheet.Cell(rowIndex, 20).Value = cp?.Name ?? string.Empty;
-                    sheet.Cell(rowIndex, 21).Value = cp?.Url ?? string.Empty;
 
                     rowIndex += 1;
                 }
@@ -440,21 +396,14 @@ public class ReportsController : ControllerBase
         headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f2f4f8");
 
-        var moneyColumns = new[] { 9, 10, 12, 13, 14, 16 };
-        var percentColumns = new[] { 15, 17 };
-
+        var moneyColumns = new[] { 9, 10 };
         foreach (var col in moneyColumns.Distinct())
         {
             sheet.Column(col).Style.NumberFormat.Format = "#,##0";
         }
 
-        foreach (var col in percentColumns.Distinct())
-        {
-            sheet.Column(col).Style.NumberFormat.Format = "0.0%";
-        }
-
         sheet.SheetView.FreezeRows(1);
-        sheet.SheetView.FreezeColumns(11);
+        sheet.SheetView.FreezeColumns(8);
         sheet.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();
