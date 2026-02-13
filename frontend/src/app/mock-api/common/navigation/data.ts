@@ -65,13 +65,6 @@ const resultsGroup: FuseNavigationItem = {
     type: 'group',
     children: [
         {
-            id: 'results.latest',
-            title: 'Ultimo snapshot',
-            type: 'basic',
-            icon: 'heroicons_outline:chart-bar-square',
-            link: '/results/latest',
-        },
-        {
             id: 'results.history',
             title: 'Historico',
             type: 'basic',
